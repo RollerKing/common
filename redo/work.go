@@ -33,7 +33,17 @@ func WrapFunc(work func()) Job {
 	}
 }
 
+// perform job without gracefull exit
 func Perform(once Job, duration time.Duration) *Recipet {
+	return performWork(once, duration, false)
+}
+
+// perform job with gracefull exit
+func PerformSafe(once Job, duration time.Duration) *Recipet {
+	return performWork(once, duration, true)
+}
+
+func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 	onceFunc := func(ctx *RedoCtx) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -47,7 +57,9 @@ func Perform(once Job, duration time.Duration) *Recipet {
 	recipet := newRecipet()
 	go func(m *Recipet) {
 		sigchan := make(chan os.Signal, 1)
-		signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+		if catchSignal {
+			signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+		}
 		pls_exit := m.requestStopChan()
 		for {
 			ctx := newCtx(duration)
@@ -61,7 +73,7 @@ func Perform(once Job, duration time.Duration) *Recipet {
 			case s := <-sigchan:
 				log.Debugf("get syscall signal %v", s)
 				signal.Stop(sigchan)
-				m.stopWithRequest(false)
+				m.stopWithRequest(STOP_SYS)
 				m.closeChannels()
 				return
 			case <-time.After(ctx.delayBeforeNextLoop):

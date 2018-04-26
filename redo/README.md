@@ -15,7 +15,7 @@ func main() {
 	job := func() {
 		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), "gogogo")
 	}
-	rep := redo.Perform(redo.WrapFunc(job), time.Second*1)
+	rep := redo.PerformSafe(redo.WrapFunc(job), time.Second*1)
 	go func() {
 		time.Sleep(3 * time.Second)
 		rep.Stop()
