@@ -5,27 +5,11 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 )
 
 type Job func(*RedoCtx)
-
-type JobState int
-
-const (
-	JobRunning JobState = iota
-	JobStopping
-	JobStopped
-)
-
-type Recipet struct {
-	done     chan struct{}
-	pls_exit chan struct{}
-	state    JobState
-	*sync.Mutex
-}
 
 type RedoCtx struct {
 	delayBeforeNextLoop time.Duration
@@ -41,40 +25,6 @@ func (ctx *RedoCtx) SetDelayBeforeNext(new_duration time.Duration) {
 
 func (ctx *RedoCtx) StartNextRightNow() {
 	ctx.SetDelayBeforeNext(time.Duration(0))
-}
-
-func (m *Recipet) Stop() bool {
-	return m.stopWithRequest(true)
-}
-
-func (m *Recipet) stopWithRequest(with bool) bool {
-	var op bool = false
-	if m.state != JobRunning {
-		return op
-	}
-	m.Lock()
-	if m.state == JobRunning {
-		m.state = JobStopping
-		if with {
-			m.pls_exit <- struct{}{}
-		}
-		op = true
-	}
-	m.Unlock()
-	return op
-}
-
-func (m *Recipet) Wait() {
-	<-m.done
-	if m.state == JobStopped {
-		return
-	}
-	m.Lock()
-	if m.state == JobStopping {
-		m.state = JobStopped
-		close(m.done)
-	}
-	m.Unlock()
 }
 
 func WrapFunc(work func()) Job {
@@ -94,31 +44,25 @@ func Perform(once Job, duration time.Duration) *Recipet {
 		}()
 		once(ctx)
 	}
-	recipet := &Recipet{
-		pls_exit: make(chan struct{}, 1),
-		done:     make(chan struct{}, 1),
-		state:    JobRunning,
-		Mutex:    new(sync.Mutex),
-	}
+	recipet := newRecipet()
 	go func(m *Recipet) {
 		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+		pls_exit := m.requestStopChan()
 		for {
 			ctx := newCtx(duration)
 			onceFunc(ctx)
 
 			select {
-			case <-m.pls_exit:
+			case <-pls_exit:
 				log.Debugf("user request exit")
-				m.done <- struct{}{}
-				close(m.pls_exit)
+				m.closeChannels()
 				return
 			case s := <-sigchan:
 				log.Debugf("get syscall signal %v", s)
 				signal.Stop(sigchan)
 				m.stopWithRequest(false)
-				close(m.pls_exit)
-				m.done <- struct{}{}
+				m.closeChannels()
 				return
 			case <-time.After(ctx.delayBeforeNextLoop):
 			}
