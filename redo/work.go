@@ -4,6 +4,7 @@ import (
 	"github.com/qjpcpu/log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 )
@@ -44,7 +45,9 @@ func Perform(once Job, duration time.Duration) *Recipet {
 	onceFunc := func(ctx *RedoCtx) {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorf("panic occur:%+v", r)
+				buf := make([]byte, 1<<16)
+				runtime.Stack(buf, false)
+				log.Errorf("panic occur:%+v\nstacktrace:%s", r, string(buf))
 			}
 		}()
 		once(ctx)
@@ -62,12 +65,12 @@ func Perform(once Job, duration time.Duration) *Recipet {
 
 			select {
 			case <-m.pls_exit:
-				log.Info("user request exit")
+				log.Debugf("user request exit")
 				m.done <- struct{}{}
 				close(m.pls_exit)
 				return
 			case s := <-sigchan:
-				log.Infof("get syscall signal %v", s)
+				log.Debugf("get syscall signal %v", s)
 				signal.Stop(sigchan)
 				m.done <- struct{}{}
 				return
