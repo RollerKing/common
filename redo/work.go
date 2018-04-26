@@ -41,6 +41,12 @@ func (m *Recipet) Wait() {
 	close(m.done)
 }
 
+func WrapFunc(work func()) Job {
+	return func(ctx *RedoCtx) {
+		work()
+	}
+}
+
 func Perform(once Job, duration time.Duration) *Recipet {
 	onceFunc := func(ctx *RedoCtx) {
 		defer func() {
