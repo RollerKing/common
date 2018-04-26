@@ -8,10 +8,27 @@ import (
 	"time"
 )
 
-type Job func() error
+type Job func(*RedoCtx)
+
 type Recipet struct {
 	done     chan struct{}
 	pls_exit chan struct{}
+}
+
+type RedoCtx struct {
+	delayBeforeNextLoop time.Duration
+}
+
+func newCtx(duration time.Duration) *RedoCtx {
+	return &RedoCtx{delayBeforeNextLoop: duration}
+}
+
+func (ctx *RedoCtx) SetDelayBeforeNext(new_duration time.Duration) {
+	ctx.delayBeforeNextLoop = new_duration
+}
+
+func (ctx *RedoCtx) StartNextRightNow() {
+	ctx.SetDelayBeforeNext(time.Duration(0))
 }
 
 func (m *Recipet) Stop() {
@@ -24,15 +41,13 @@ func (m *Recipet) Wait() {
 }
 
 func Perform(once Job, duration time.Duration) *Recipet {
-	onceFunc := func() {
+	onceFunc := func(ctx *RedoCtx) {
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorf("panic occur:%+v", r)
 			}
 		}()
-		if err := once(); err != nil {
-			log.Debugf("error occur:%v", err)
-		}
+		once(ctx)
 	}
 	recipet := &Recipet{
 		pls_exit: make(chan struct{}, 1),
@@ -42,10 +57,10 @@ func Perform(once Job, duration time.Duration) *Recipet {
 		sigchan := make(chan os.Signal, 1)
 		signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 		for {
-			onceFunc()
+			ctx := newCtx(duration)
+			onceFunc(ctx)
 
 			select {
-			case <-time.After(duration):
 			case <-m.pls_exit:
 				log.Info("user request exit")
 				m.done <- struct{}{}
@@ -56,6 +71,7 @@ func Perform(once Job, duration time.Duration) *Recipet {
 				signal.Stop(sigchan)
 				m.done <- struct{}{}
 				return
+			case <-time.After(ctx.delayBeforeNextLoop):
 			}
 		}
 	}(recipet)
