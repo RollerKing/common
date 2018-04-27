@@ -74,3 +74,31 @@ func (m *Recipet) Wait() StopType {
 	<-m.WaitChan()
 	return m.stop_type
 }
+
+func (m *Recipet) Concat(others ...*Recipet) *CombiRecipt {
+	cr := &CombiRecipt{recipets: []*Recipet{m}}
+	for i := range others {
+		cr.recipets = append(cr.recipets, others[i])
+	}
+	return cr
+}
+
+type CombiRecipt struct {
+	recipets []*Recipet
+}
+
+func NewCombiRecipt(list ...*Recipet) *CombiRecipt {
+	return &CombiRecipt{recipets: list}
+}
+
+func (cr *CombiRecipt) Stop() {
+	for _, r := range cr.recipets {
+		r.Stop()
+	}
+}
+
+func (cr *CombiRecipt) Wait() {
+	for _, r := range cr.recipets {
+		r.Wait()
+	}
+}

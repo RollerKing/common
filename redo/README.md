@@ -58,3 +58,33 @@ func main() {
 	fmt.Println("finished")
 }
 ```
+
+concat multi job
+
+```
+package main
+
+import (
+	"fmt"
+	"github.com/qjpcpu/common/redo"
+	"time"
+)
+
+func main() {
+	job1 := func() {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), "gogogo")
+	}
+	rep1 := redo.PerformSafe(redo.WrapFunc(job1), time.Second*1)
+	job2 := func() {
+		fmt.Println(time.Now().Format("2006-01-02 15:04:05"), "6o6o6o6o")
+	}
+	rep2 := redo.PerformSafe(redo.WrapFunc(job2), time.Second*1)
+	rep := redo.NewCombiRecipt(rep1, rep2)
+	go func() {
+		time.Sleep(3 * time.Second)
+		rep.Stop()
+	}()
+	rep.Wait()
+	fmt.Println("finished")
+}
+```
