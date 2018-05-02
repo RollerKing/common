@@ -13,10 +13,14 @@ type Job func(*RedoCtx)
 
 type RedoCtx struct {
 	delayBeforeNextLoop time.Duration
+	stopRedo            bool
 }
 
 func newCtx(duration time.Duration) *RedoCtx {
-	return &RedoCtx{delayBeforeNextLoop: duration}
+	return &RedoCtx{
+		delayBeforeNextLoop: duration,
+		stopRedo:            false,
+	}
 }
 
 func (ctx *RedoCtx) SetDelayBeforeNext(new_duration time.Duration) {
@@ -25,6 +29,10 @@ func (ctx *RedoCtx) SetDelayBeforeNext(new_duration time.Duration) {
 
 func (ctx *RedoCtx) StartNextRightNow() {
 	ctx.SetDelayBeforeNext(time.Duration(0))
+}
+
+func (ctx *RedoCtx) StopRedo() {
+	ctx.stopRedo = true
 }
 
 func WrapFunc(work func()) Job {
@@ -64,6 +72,9 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 		for {
 			ctx := newCtx(duration)
 			onceFunc(ctx)
+			if ctx.stopRedo {
+				m.Stop()
+			}
 
 			select {
 			case <-pls_exit:
