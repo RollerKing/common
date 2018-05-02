@@ -1,7 +1,7 @@
 package redo
 
 import (
-	"github.com/qjpcpu/log"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -57,7 +57,7 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 			if r := recover(); r != nil {
 				buf := make([]byte, 1<<16)
 				runtime.Stack(buf, false)
-				log.Errorf("panic occur:%+v\nstacktrace:%s", r, string(buf))
+				log.Printf("panic occur:%+v\nstacktrace:%s\n", r, string(buf))
 			}
 		}()
 		once(ctx)
@@ -78,11 +78,9 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 
 			select {
 			case <-pls_exit:
-				log.Debugf("user request exit")
 				m.closeChannels()
 				return
-			case s := <-sigchan:
-				log.Debugf("get syscall signal %v", s)
+			case <-sigchan:
 				signal.Stop(sigchan)
 				m.stopWithRequest(STOP_SYS)
 				m.closeChannels()
