@@ -93,7 +93,7 @@ func (c *HttpClient) Get(uri string) (res []byte, err error) {
 
 func (c *HttpClient) PostForm(urlstr string, data map[string]interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
 	hder := make(map[string]string)
-	hder["Content-Type"] = "application/x-www-form-urlencoded"
+	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 	if len(extraHeaders) > 0 {
 		for k, v := range extraHeaders[0] {
 			if v != "" {
@@ -110,7 +110,7 @@ func (c *HttpClient) PostForm(urlstr string, data map[string]interface{}, extraH
 
 func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
 	hder := make(map[string]string)
-	hder["Content-Type"] = "application/json"
+	hder["Content-Type"] = "application/json; charset=UTF-8"
 	if len(extraHeaders) > 0 {
 		for k, v := range extraHeaders[0] {
 			if v != "" {
