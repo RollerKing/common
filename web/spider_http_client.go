@@ -118,11 +118,19 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...m
 			}
 		}
 	}
-	_data, err := json.Marshal(data)
-	if err != nil {
-		return nil, err
+	var payload []byte
+	switch d := data.(type) {
+	case string:
+		payload = []byte(d)
+	case []byte:
+		payload = d
+	default:
+		payload, err = json.Marshal(data)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return c.HttpRequest("POST", urlstr, hder, _data)
+	return c.HttpRequest("POST", urlstr, hder, payload)
 }
 
 func (c *HttpClient) HttpRequest(method, urlstr string, headers map[string]string, bodyData []byte) (res []byte, err error) {
