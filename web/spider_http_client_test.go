@@ -13,16 +13,15 @@ func TestClient(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	c.InceptState()
 	res, err := c.Get("http://httpbin.org/get")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(string(res))
-	res, err = c.PostForm("http://httpbin.org/post", map[string]interface{}{
+	res, err = c.PostForm("http://httpbin.org/post", Form{
 		"a": "text",
 		"b": 34,
-	}, map[string]string{"Extract": "AAA"})
+	}, Header{"Extract": "AAA"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +29,7 @@ func TestClient(t *testing.T) {
 	res, err = c.PostJSON("http://httpbin.org/post", map[string]interface{}{
 		"a": "text",
 		"b": 34,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

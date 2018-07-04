@@ -36,6 +36,9 @@ type HttpClient struct {
 	Headers  map[string]http.Header
 }
 
+type Header map[string]string
+type Form map[string]interface{}
+
 // config
 func (client *HttpClient) AsDefault() {
 	_client = client
@@ -46,7 +49,7 @@ func (client *HttpClient) EnableCookie() {
 	client.Client.Jar = jar
 }
 
-func (c *HttpClient) SetHeaders(host string, h map[string]string) error {
+func (c *HttpClient) SetHeaders(host string, h Header) error {
 	c.headlock.Lock()
 	defer c.headlock.Unlock()
 	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
@@ -67,14 +70,6 @@ func (c *HttpClient) SetHeaders(host string, h map[string]string) error {
 	return nil
 }
 
-func (c *HttpClient) InceptState() {
-	fmt.Printf("cookies:\n%+v\n", c.Client.Jar)
-	fmt.Println("================================")
-
-	fmt.Printf("headers:\n%+v\n", c.Headers)
-	fmt.Println("================================")
-}
-
 func (c *HttpClient) fillReqHeader(req *http.Request) {
 	c.headlock.RLock()
 	defer c.headlock.RUnlock()
@@ -91,14 +86,12 @@ func (c *HttpClient) Get(uri string) (res []byte, err error) {
 	return c.HttpRequest("GET", uri, nil, nil)
 }
 
-func (c *HttpClient) PostForm(urlstr string, data map[string]interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
-	hder := make(map[string]string)
+func (c *HttpClient) PostForm(urlstr string, data Form, extraHeader Header) (res []byte, err error) {
+	hder := make(Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
-	if len(extraHeaders) > 0 {
-		for k, v := range extraHeaders[0] {
-			if v != "" {
-				hder[k] = v
-			}
+	for k, v := range extraHeader {
+		if v != "" {
+			hder[k] = v
 		}
 	}
 	values := url.Values{}
@@ -108,14 +101,12 @@ func (c *HttpClient) PostForm(urlstr string, data map[string]interface{}, extraH
 	return c.HttpRequest("POST", urlstr, hder, []byte(values.Encode()))
 }
 
-func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
-	hder := make(map[string]string)
+func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader Header) (res []byte, err error) {
+	hder := make(Header)
 	hder["Content-Type"] = "application/json; charset=UTF-8"
-	if len(extraHeaders) > 0 {
-		for k, v := range extraHeaders[0] {
-			if v != "" {
-				hder[k] = v
-			}
+	for k, v := range extraHeader {
+		if v != "" {
+			hder[k] = v
 		}
 	}
 	var payload []byte
@@ -133,7 +124,7 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...m
 	return c.HttpRequest("POST", urlstr, hder, payload)
 }
 
-func (c *HttpClient) HttpRequest(method, urlstr string, headers map[string]string, bodyData []byte) (res []byte, err error) {
+func (c *HttpClient) HttpRequest(method, urlstr string, headers Header, bodyData []byte) (res []byte, err error) {
 	var req *http.Request
 	var body_data io.Reader
 	method = strings.ToUpper(method)
@@ -172,10 +163,10 @@ func Get(uri string) (res []byte, err error) {
 	return _client.Get(uri)
 }
 
-func PostForm(urlstr string, data map[string]interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
-	return _client.PostForm(urlstr, data, extraHeaders...)
+func PostForm(urlstr string, data Form, extraHeader Header) (res []byte, err error) {
+	return _client.PostForm(urlstr, data, extraHeader)
 }
 
-func PostJSON(urlstr string, data interface{}, extraHeaders ...map[string]string) (res []byte, err error) {
-	return _client.PostJSON(urlstr, data, extraHeaders...)
+func PostJSON(urlstr string, data interface{}, extraHeader Header) (res []byte, err error) {
+	return _client.PostJSON(urlstr, data, extraHeader)
 }
