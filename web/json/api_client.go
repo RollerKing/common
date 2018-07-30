@@ -47,7 +47,7 @@ func Post(urlstr string, payload interface{}, resObj interface{}) error {
 		writer.Flush()
 		data = buf.Bytes()
 	}
-	header := map[string]string{"Content-Type": "application/json; charset=UTF-8"}
+	header := map[string]string{"Content-Type": "application/json"}
 	return HttpRequest("POST", urlstr, header, data, resObj)
 }
 
