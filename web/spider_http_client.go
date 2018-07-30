@@ -115,6 +115,8 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader Heade
 		payload = []byte(d)
 	case []byte:
 		payload = d
+	case nil:
+		// do nothing
 	default:
 		payload, err = json.Marshal(data)
 		if err != nil {
