@@ -18,6 +18,10 @@ var client = &http.Client{
 	Timeout: 60 * time.Second,
 }
 
+func SetTimeout(tm time.Duration) {
+	client.Timeout = tm
+}
+
 func Colored(obj interface{}) string {
 	s, _ := prettyjson.Marshal(obj)
 	return string(s)
