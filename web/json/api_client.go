@@ -27,11 +27,15 @@ func Colored(obj interface{}) string {
 	return string(s)
 }
 
-func Get(urlstr string, resObj interface{}) error {
-	return HttpRequest("GET", urlstr, nil, nil, resObj)
+func Get(urlstr string, resObj interface{}, optional_header ...map[string]string) error {
+	var header map[string]string
+	if len(optional_header) > 0 {
+		header = optional_header[0]
+	}
+	return HttpRequest("GET", urlstr, header, nil, resObj)
 }
 
-func Post(urlstr string, payload interface{}, resObj interface{}) error {
+func Post(urlstr string, payload interface{}, resObj interface{}, optional_header ...map[string]string) error {
 	var data []byte
 	switch v := payload.(type) {
 	case string:
@@ -52,6 +56,11 @@ func Post(urlstr string, payload interface{}, resObj interface{}) error {
 		data = buf.Bytes()
 	}
 	header := map[string]string{"Content-Type": "application/json"}
+	if len(optional_header) > 0 {
+		for k, v := range optional_header[0] {
+			header[k] = v
+		}
+	}
 	return HttpRequest("POST", urlstr, header, data, resObj)
 }
 
