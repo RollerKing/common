@@ -5,7 +5,7 @@ import (
 	"bytes"
 	sysjson "encoding/json"
 	"errors"
-	"github.com/hokaccha/go-prettyjson"
+	"github.com/qjpcpu/go-prettyjson"
 	"io"
 	"io/ioutil"
 	"net/http"
