@@ -158,7 +158,8 @@ const (
 	ColExcept   = orm.ColExcept
 )
 
-// function rename
+// function/variables reexport
 var (
-	ColValue = orm.ColValue
+	ColValue  = orm.ColValue
+	ErrNoRows = orm.ErrNoRows
 )
