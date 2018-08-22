@@ -7,7 +7,7 @@ import (
 func TestClient(t *testing.T) {
 	c := NewClient()
 	c.EnableCookie()
-	if err := c.SetHeaders("http://httpbin.org", map[string]string{
+	if err := c.SetHeaders(map[string]string{
 		"love":       "34",
 		"user-agent": "safari",
 	}); err != nil {

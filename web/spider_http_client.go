@@ -26,14 +26,14 @@ func NewClient(timeout ...time.Duration) *HttpClient {
 	return &HttpClient{
 		Client:   &http.Client{Timeout: tm},
 		headlock: new(sync.RWMutex),
-		Headers:  make(map[string]http.Header),
+		Headers:  make(http.Header),
 	}
 }
 
 type HttpClient struct {
 	Client   *http.Client
 	headlock *sync.RWMutex
-	Headers  map[string]http.Header
+	Headers  http.Header
 }
 
 type Header map[string]string
@@ -49,35 +49,21 @@ func (client *HttpClient) EnableCookie() {
 	client.Client.Jar = jar
 }
 
-func (c *HttpClient) SetHeaders(host string, h Header) error {
+func (c *HttpClient) SetHeaders(h Header) error {
 	c.headlock.Lock()
 	defer c.headlock.Unlock()
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		host = "http://" + host
-	}
-	u, err := url.Parse(host)
-	if err != nil {
-		return err
-	}
-	hs, ok := c.Headers[u.Host]
-	if !ok {
-		hs = make(http.Header)
-	}
 	for k, v := range h {
-		hs.Set(k, v)
+		c.Headers.Set(k, v)
 	}
-	c.Headers[u.Host] = hs
 	return nil
 }
 
 func (c *HttpClient) fillReqHeader(req *http.Request) {
 	c.headlock.RLock()
 	defer c.headlock.RUnlock()
-	if h, ok := c.Headers[req.Host]; ok {
-		for name := range h {
-			if v := h.Get(name); v != "" {
-				req.Header.Set(name, v)
-			}
+	for name := range c.Headers {
+		if v := c.Headers.Get(name); v != "" {
+			req.Header.Set(name, v)
 		}
 	}
 }
@@ -157,8 +143,8 @@ func (c *HttpClient) HttpRequest(method, urlstr string, headers Header, bodyData
 }
 
 // defaults
-func SetHeaders(host string, h map[string]string) error {
-	return _client.SetHeaders(host, h)
+func SetHeaders(h Header) error {
+	return _client.SetHeaders(h)
 }
 
 func Get(uri string) (res []byte, err error) {
