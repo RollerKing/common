@@ -106,7 +106,28 @@ func ExecTransaction(o Ormer, transction ...Task) error {
 	return nil
 }
 
+// convenient alias
+type Ormer = orm.Ormer
+type Params = orm.Params
+
+const (
+	ColAdd      = orm.ColAdd
+	ColMinus    = orm.ColMinus
+	ColMultiply = orm.ColMultiply
+	ColExcept   = orm.ColExcept
+)
+
+// function/variables reexport
+var (
+	ColValue  = orm.ColValue
+	ErrNoRows = orm.ErrNoRows
+)
+
 // helpers
+func IsNoRowsErr(err error) bool {
+	return err != nil && err == orm.ErrNoRows
+}
+
 // ToArgsSlice([]string{"x","y","z"}) ==> []inteface{}{"x","y","z"}
 func ToArgsSlice(array interface{}) []interface{} {
 	v := reflect.ValueOf(array)
@@ -146,20 +167,3 @@ func Placeholders(array interface{}) string {
 	}
 	return string(holders)
 }
-
-// convenient alias
-type Ormer = orm.Ormer
-type Params = orm.Params
-
-const (
-	ColAdd      = orm.ColAdd
-	ColMinus    = orm.ColMinus
-	ColMultiply = orm.ColMultiply
-	ColExcept   = orm.ColExcept
-)
-
-// function/variables reexport
-var (
-	ColValue  = orm.ColValue
-	ErrNoRows = orm.ErrNoRows
-)
