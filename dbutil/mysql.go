@@ -8,13 +8,15 @@ import (
 	"github.com/qjpcpu/log/logging"
 	"reflect"
 	"runtime/debug"
+	"time"
 )
 
 type ConnOption struct {
-	Conn        string
-	Alias       string // default is "default"
-	MaxIdleConn int
-	MaxOpenConn int
+	Conn            string
+	Alias           string // default is "default"
+	MaxIdleConn     int
+	MaxOpenConn     int
+	ConnMaxLifetime time.Duration
 }
 
 func InitMysql(options ...ConnOption) error {
@@ -35,6 +37,13 @@ func InitMysql(options ...ConnOption) error {
 		}
 		if err := orm.RegisterDataBase(opt.Alias, "mysql", opt.Conn, params...); err != nil {
 			return err
+		}
+		if opt.ConnMaxLifetime > 0 {
+			if db, err := orm.GetDB(opt.Alias); err != nil {
+				return err
+			} else {
+				db.SetConnMaxLifetime(opt.ConnMaxLifetime)
+			}
 		}
 	}
 	return nil
