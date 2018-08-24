@@ -50,7 +50,7 @@ func InitMysql(options ...ConnOption) error {
 }
 
 func SetDBLog(file_path string) error {
-	flog, err := logging.NewFileLogWriter(file_path, logging.RotateDaily)
+	flog, err := logging.NewFileLogWriter(file_path, logging.RotateDaily, false)
 	if err != nil {
 		return fmt.Errorf("set db log fail:%v", err)
 	}
