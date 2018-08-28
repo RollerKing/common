@@ -30,7 +30,7 @@ var defaltOption = Options{
 	WriteTimeout: 2 * time.Second,
 }
 
-func Pool() *redis.Pool {
+func GetPool() *redis.Pool {
 	return g_unblock_redis_pool
 }
 

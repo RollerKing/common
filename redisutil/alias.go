@@ -6,6 +6,7 @@ import (
 
 type Conn = redis.Conn
 type Script = redis.Script
+type Pool = redis.Pool
 
 var (
 	ErrNil = redis.ErrNil
