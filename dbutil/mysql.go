@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/astaxie/beego/orm"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/qjpcpu/log/logging"
+	"github.com/qjpcpu/filelog"
 	"reflect"
 	"runtime/debug"
 	"time"
@@ -50,7 +50,7 @@ func InitMysql(options ...ConnOption) error {
 }
 
 func SetDBLog(file_path string) error {
-	flog, err := logging.NewFileLogWriter(file_path, logging.RotateDaily, false)
+	flog, err := filelog.NewWriter(file_path, filelog.RotateDaily, false)
 	if err != nil {
 		return fmt.Errorf("set db log fail:%v", err)
 	}
