@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"github.com/qjpcpu/common/redisutil"
 	"time"
 )
 
 // 最小时间片10ms
 const time_slot int64 = 10
-const default_rule = "(default)"
 
 // global redis prefix
 const DefaultNamespace = "freqctrl"
@@ -78,7 +78,7 @@ func NewWithNamespace(p *redis.Pool, ns string, thr, win int64) (*FreqCtrl, erro
 }
 
 // Tick频控次数+1并返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) TickRule(user, rule string) float64 {
+func (fc *FreqCtrl) Tick(user, rule string) float64 {
 	if user == "" || rule == "" {
 		return 0
 	}
@@ -92,7 +92,7 @@ func (fc *FreqCtrl) TickRule(user, rule string) float64 {
 }
 
 // Check频控次数,返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) CheckRule(user, rule string) float64 {
+func (fc *FreqCtrl) Check(user, rule string) float64 {
 	if user == "" || rule == "" {
 		return 0
 	}
@@ -105,16 +105,33 @@ func (fc *FreqCtrl) CheckRule(user, rule string) float64 {
 	return fcnt / float64(fc.threshold)
 }
 
-// Tick频控次数+1并返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) Tick(user string) float64 {
-	return fc.TickRule(user, default_rule)
-}
-
-// Check频控次数,返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) Check(user string) float64 {
-	return fc.CheckRule(user, default_rule)
-}
-
 func (fc *FreqCtrl) key(k string) string {
 	return fmt.Sprintf("%s:%v|%v:%s", fc.namespace, fc.threshold, fc.window, k)
+}
+
+type FreqCtrlSet struct {
+	pool  *redis.Pool
+	ns    string
+	ctrls map[string]*FreqCtrl
+}
+
+func NewFreqCtrlSet(redis_addr, db, password, namespace string) *FreqCtrlSet {
+	return &FreqCtrlSet{
+		pool:  redisutil.CreatePool(redis_addr, db, password),
+		ns:    namespace,
+		ctrls: make(map[string]*FreqCtrl),
+	}
+}
+
+func (fs *FreqCtrlSet) SetCtrl(name string, thr, window int64) error {
+	fc, err := NewWithNamespace(fs.pool, fs.ns, thr, window)
+	if err != nil {
+		return err
+	}
+	fs.ctrls[name] = fc
+	return nil
+}
+
+func (fs *FreqCtrlSet) GetCtrl(name string) *FreqCtrl {
+	return fs.ctrls[name]
 }
