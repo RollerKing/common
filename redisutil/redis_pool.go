@@ -20,15 +20,7 @@ type Options struct {
 	WriteTimeout    time.Duration
 }
 
-var defaltOption = Options{
-	MaxIdle:      200,
-	MaxActive:    200,
-	IdleTimeout:  2 * time.Second,
-	Wait:         false,
-	ConnTimeout:  2 * time.Second,
-	ReadTimeout:  2 * time.Second,
-	WriteTimeout: 2 * time.Second,
-}
+type OptFunc func(*Options)
 
 func GetPool() *redis.Pool {
 	return g_unblock_redis_pool
@@ -38,14 +30,20 @@ func DLocker() *redsync.Redsync {
 	return g_locker
 }
 
-func InitRedis(conn string, redis_db, passwd string, options ...Options) {
-	var opt Options
-	if len(options) == 1 {
-		opt = options[0]
-	} else {
-		opt = defaltOption
+func CreatePool(conn string, redis_db, passwd string, wrappers ...OptFunc) *redis.Pool {
+	var opt = &Options{
+		MaxIdle:      200,
+		MaxActive:    200,
+		IdleTimeout:  2 * time.Second,
+		Wait:         false,
+		ConnTimeout:  2 * time.Second,
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 2 * time.Second,
 	}
-	g_unblock_redis_pool = &redis.Pool{
+	for _, fn := range wrappers {
+		fn(opt)
+	}
+	return &redis.Pool{
 		MaxIdle:     opt.MaxIdle,
 		MaxActive:   opt.MaxActive,
 		IdleTimeout: opt.IdleTimeout,
@@ -75,5 +73,9 @@ func InitRedis(conn string, redis_db, passwd string, options ...Options) {
 			return err
 		},
 	}
+}
+
+func InitRedis(conn string, redis_db, passwd string, optfunc ...OptFunc) {
+	g_unblock_redis_pool = CreatePool(conn, redis_db, passwd, optfunc...)
 	g_locker = redsync.New([]redsync.Pool{g_unblock_redis_pool})
 }

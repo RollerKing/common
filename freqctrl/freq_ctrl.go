@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+// 最小时间片10ms
+const time_slot int64 = 10
+const default_rule = "(default)"
+
+// global redis prefix
+const DefaultNamespace = "freqctrl"
+
 // 用户频控漏洞算法redis实现:
 // 存储基本数据对象为hash,hash_name是user_id,hash的field是url
 // hash的field_value是一个json结构:
@@ -52,21 +59,26 @@ return tostring(threshold - data['t'] - data['of'])
 
 type FreqCtrl struct {
 	pool      *redis.Pool
-	prefix    string
+	namespace string
 	threshold int64
 	window    int64 // freq control time window(seconds)
 }
 
 // NewFreqCtrl创建频控对象,设置时间窗口win(秒)内最大次数thr
-func New(p *redis.Pool, prefixKey string, thr, win int64) (*FreqCtrl, error) {
-	if thr < 1 || win < 1 {
+func New(p *redis.Pool, thr, win int64) (*FreqCtrl, error) {
+	return NewWithNamespace(p, DefaultNamespace, thr, win)
+}
+
+// NewFreqCtrl创建频控对象,设置时间窗口win(秒)内最大次数thr
+func NewWithNamespace(p *redis.Pool, ns string, thr, win int64) (*FreqCtrl, error) {
+	if thr < 1 || win < 1 || ns == "" {
 		return nil, errors.New("error parameters")
 	}
-	return &FreqCtrl{pool: p, prefix: prefixKey, threshold: thr, window: win}, nil
+	return &FreqCtrl{pool: p, namespace: ns, threshold: thr, window: win}, nil
 }
 
 // Tick频控次数+1并返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) Tick(user, rule string) float64 {
+func (fc *FreqCtrl) TickRule(user, rule string) float64 {
 	if user == "" || rule == "" {
 		return 0
 	}
@@ -80,7 +92,7 @@ func (fc *FreqCtrl) Tick(user, rule string) float64 {
 }
 
 // Check频控次数,返回频控当前水位[0,1.0], >1表示超过阈值
-func (fc *FreqCtrl) Check(user, rule string) float64 {
+func (fc *FreqCtrl) CheckRule(user, rule string) float64 {
 	if user == "" || rule == "" {
 		return 0
 	}
@@ -93,6 +105,16 @@ func (fc *FreqCtrl) Check(user, rule string) float64 {
 	return fcnt / float64(fc.threshold)
 }
 
+// Tick频控次数+1并返回频控当前水位[0,1.0], >1表示超过阈值
+func (fc *FreqCtrl) Tick(user string) float64 {
+	return fc.TickRule(user, default_rule)
+}
+
+// Check频控次数,返回频控当前水位[0,1.0], >1表示超过阈值
+func (fc *FreqCtrl) Check(user string) float64 {
+	return fc.CheckRule(user, default_rule)
+}
+
 func (fc *FreqCtrl) key(k string) string {
-	return fmt.Sprintf("%s:%v|%v:%s", fc.prefix, fc.threshold, fc.window, k)
+	return fmt.Sprintf("%s:%v|%v:%s", fc.namespace, fc.threshold, fc.window, k)
 }
