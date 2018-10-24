@@ -63,10 +63,10 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 		once(ctx)
 	}
 	recipet := newRecipet()
+	recipet.catchSignal = catchSignal
 	go func(m *Recipet) {
-		sigchan := make(chan os.Signal, 1)
 		if catchSignal {
-			signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+			batchCatchSignals(recipet.sigchan)
 		}
 		pls_exit := m.requestStopChan()
 		for {
@@ -80,8 +80,8 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 			case <-pls_exit:
 				m.closeChannels()
 				return
-			case <-sigchan:
-				signal.Stop(sigchan)
+			case <-recipet.sigchan:
+				signal.Stop(recipet.sigchan)
 				m.stopWithRequest(STOP_SYS)
 				m.closeChannels()
 				return
@@ -90,4 +90,8 @@ func performWork(once Job, duration time.Duration, catchSignal bool) *Recipet {
 		}
 	}(recipet)
 	return recipet
+}
+
+func batchCatchSignals(sigchan chan os.Signal) {
+	signal.Notify(sigchan, syscall.SIGABRT, syscall.SIGALRM, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 }

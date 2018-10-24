@@ -1,6 +1,7 @@
 package redo
 
 import (
+	"os"
 	"sync"
 )
 
@@ -19,19 +20,23 @@ const (
 )
 
 type Recipet struct {
-	done      chan struct{}
-	pls_exit  chan struct{}
-	state     JobState
-	stop_type StopType // signal or user request stop
+	done        chan struct{}
+	pls_exit    chan struct{}
+	sigchan     chan os.Signal
+	catchSignal bool
+	state       JobState
+	stop_type   StopType // signal or user request stop
 	*sync.Mutex
 }
 
 func newRecipet() *Recipet {
 	return &Recipet{
-		pls_exit: make(chan struct{}, 1),
-		done:     make(chan struct{}, 1),
-		state:    JobRunning,
-		Mutex:    new(sync.Mutex),
+		pls_exit:    make(chan struct{}, 1),
+		done:        make(chan struct{}, 1),
+		state:       JobRunning,
+		sigchan:     make(chan os.Signal, 1),
+		catchSignal: false,
+		Mutex:       new(sync.Mutex),
 	}
 }
 
@@ -76,11 +81,8 @@ func (m *Recipet) Wait() StopType {
 }
 
 func (m *Recipet) Concat(others ...*Recipet) *CombiRecipt {
-	cr := NewCombiRecipt(m)
-	for i := range others {
-		cr.recipets = append(cr.recipets, others[i])
-	}
-	return cr
+	rs := append([]*Recipet{m}, others...)
+	return NewCombiRecipt(rs...)
 }
 
 type CombiRecipt struct {
@@ -90,6 +92,18 @@ type CombiRecipt struct {
 }
 
 func NewCombiRecipt(list ...*Recipet) *CombiRecipt {
+	var unsafeRecipets []*Recipet
+	for i, r := range list {
+		if !r.catchSignal {
+			unsafeRecipets = append(unsafeRecipets, list[i])
+		}
+	}
+	if len(unsafeRecipets) > 0 && len(unsafeRecipets) < len(list) {
+		for i := range unsafeRecipets {
+			unsafeRecipets[i].catchSignal = true
+			batchCatchSignals(unsafeRecipets[i].sigchan)
+		}
+	}
 	return &CombiRecipt{
 		recipets: list,
 		alldone:  make(chan struct{}, 1),
