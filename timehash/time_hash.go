@@ -3,7 +3,7 @@ package timehash
 import (
 	"encoding/json"
 	"errors"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"time"
 )
 

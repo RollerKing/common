@@ -1,13 +1,11 @@
 package redisutil
 
 import (
-	"github.com/garyburd/redigo/redis"
-	"gopkg.in/redsync.v1"
+	"github.com/gomodule/redigo/redis"
 	"time"
 )
 
 var g_unblock_redis_pool *redis.Pool
-var g_locker *redsync.Redsync
 
 type Options struct {
 	MaxIdle         int
@@ -24,10 +22,6 @@ type OptFunc func(*Options)
 
 func GetPool() *redis.Pool {
 	return g_unblock_redis_pool
-}
-
-func DLocker() *redsync.Redsync {
-	return g_locker
 }
 
 func CreatePool(conn string, redis_db, passwd string, wrappers ...OptFunc) *redis.Pool {
@@ -77,5 +71,4 @@ func CreatePool(conn string, redis_db, passwd string, wrappers ...OptFunc) *redi
 
 func InitRedis(conn string, redis_db, passwd string, optfunc ...OptFunc) {
 	g_unblock_redis_pool = CreatePool(conn, redis_db, passwd, optfunc...)
-	g_locker = redsync.New([]redsync.Pool{g_unblock_redis_pool})
 }
