@@ -18,8 +18,12 @@ type IHTTPDebugger interface {
 	Print(tm time.Time, state string, title string, detail interface{})
 }
 
-type IHTTPClient interface {
+type IHTTPRequester interface {
 	Do(req *http.Request) (*http.Response, error)
+}
+
+type IHTTPClient interface {
+	IHTTPRequester
 	IHTTPDebugger
 }
 
@@ -146,14 +150,14 @@ func (d *Debugger) Print(tm time.Time, state string, title string, detail interf
 }
 
 type SimpleClient struct {
-	*http.Client
+	IHTTPRequester
 	*Debugger
 }
 
-func GetSimpleClient(hc *http.Client) *SimpleClient {
+func GetSimpleClient(hc IHTTPRequester) *SimpleClient {
 	return &SimpleClient{
-		Client:   hc,
-		Debugger: &Debugger{},
+		IHTTPRequester: hc,
+		Debugger:       &Debugger{},
 	}
 }
 
