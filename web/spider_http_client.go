@@ -1,15 +1,12 @@
 package web
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
+	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 )
@@ -26,22 +23,24 @@ func NewClient(timeout ...time.Duration) *HttpClient {
 	return &HttpClient{
 		Client:   &http.Client{Timeout: tm},
 		headlock: new(sync.RWMutex),
-		Headers:  make(http.Header),
+		Headers:  make(httpclient.Header),
 	}
 }
 
 type HttpClient struct {
 	Client   *http.Client
 	headlock *sync.RWMutex
-	Headers  http.Header
+	Headers  httpclient.Header
+	httpclient.Debugger
 }
-
-type Header map[string]string
-type Form map[string]interface{}
 
 // config
 func (client *HttpClient) AsDefault() {
 	_client = client
+}
+
+func (client *HttpClient) Do(req *http.Request) (*http.Response, error) {
+	return client.Client.Do(req)
 }
 
 func (client *HttpClient) EnableCookie() {
@@ -49,31 +48,21 @@ func (client *HttpClient) EnableCookie() {
 	client.Client.Jar = jar
 }
 
-func (c *HttpClient) SetHeaders(h Header) error {
+func (c *HttpClient) SetHeaders(h httpclient.Header) error {
 	c.headlock.Lock()
 	defer c.headlock.Unlock()
 	for k, v := range h {
-		c.Headers.Set(k, v)
+		c.Headers[k] = v
 	}
 	return nil
 }
 
-func (c *HttpClient) fillReqHeader(req *http.Request) {
-	c.headlock.RLock()
-	defer c.headlock.RUnlock()
-	for name := range c.Headers {
-		if v := c.Headers.Get(name); v != "" {
-			req.Header.Set(name, v)
-		}
-	}
-}
-
 func (c *HttpClient) Get(uri string) (res []byte, err error) {
-	return c.HttpRequest("GET", uri, nil, nil)
+	return httpclient.Get(c, uri)
 }
 
-func (c *HttpClient) PostForm(urlstr string, data Form, extraHeader Header) (res []byte, err error) {
-	hder := make(Header)
+func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
+	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 	for k, v := range extraHeader {
 		if v != "" {
@@ -84,11 +73,11 @@ func (c *HttpClient) PostForm(urlstr string, data Form, extraHeader Header) (res
 	for k, v := range data {
 		values.Set(k, fmt.Sprint(v))
 	}
-	return c.HttpRequest("POST", urlstr, hder, []byte(values.Encode()))
+	return httpclient.HttpRequest(c, "POST", urlstr, hder, []byte(values.Encode()))
 }
 
-func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader Header) (res []byte, err error) {
-	hder := make(Header)
+func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
+	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/json; charset=UTF-8"
 	for k, v := range extraHeader {
 		if v != "" {
@@ -109,41 +98,11 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader Heade
 			return nil, err
 		}
 	}
-	return c.HttpRequest("POST", urlstr, hder, payload)
-}
-
-func (c *HttpClient) HttpRequest(method, urlstr string, headers Header, bodyData []byte) (res []byte, err error) {
-	var req *http.Request
-	var body_data io.Reader
-	method = strings.ToUpper(method)
-	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
-		urlstr = "http://" + urlstr
-	}
-	if bodyData != nil && len(bodyData) > 0 {
-		body_data = bytes.NewBuffer(bodyData)
-	}
-	req, err = http.NewRequest(method, urlstr, body_data)
-	if err != nil {
-		return res, err
-	}
-	c.fillReqHeader(req)
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	rs, err := c.Client.Do(req)
-	if err != nil {
-		return res, err
-	}
-	defer rs.Body.Close()
-	res, err = ioutil.ReadAll(rs.Body)
-	if err != nil {
-		return res, err
-	}
-	return res, nil
+	return httpclient.HttpRequest(c, "POST", urlstr, hder, payload)
 }
 
 // defaults
-func SetHeaders(h Header) error {
+func SetHeaders(h httpclient.Header) error {
 	return _client.SetHeaders(h)
 }
 
@@ -151,10 +110,10 @@ func Get(uri string) (res []byte, err error) {
 	return _client.Get(uri)
 }
 
-func PostForm(urlstr string, data Form, extraHeader Header) (res []byte, err error) {
+func PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
 	return _client.PostForm(urlstr, data, extraHeader)
 }
 
-func PostJSON(urlstr string, data interface{}, extraHeader Header) (res []byte, err error) {
+func PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
 	return _client.PostJSON(urlstr, data, extraHeader)
 }

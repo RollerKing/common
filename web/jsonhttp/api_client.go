@@ -5,13 +5,11 @@ import (
 	"bytes"
 	sysjson "encoding/json"
 	"errors"
+	"github.com/qjpcpu/common/web/httpclient"
 	"github.com/qjpcpu/go-prettyjson"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"reflect"
-	"strings"
 	"time"
 )
 
@@ -19,6 +17,7 @@ var client = NewClient(false)
 
 type JSONClient struct {
 	*http.Client
+	httpclient.Debugger
 }
 
 func NewClient(cookie bool) *JSONClient {
@@ -36,6 +35,10 @@ func NewClient(cookie bool) *JSONClient {
 
 func (jc *JSONClient) SetTimeout(tm time.Duration) {
 	jc.Client.Timeout = tm
+}
+
+func (js *JSONClient) Do(req *http.Request) (*http.Response, error) {
+	return js.Client.Do(req)
 }
 
 func Colored(obj interface{}) string {
@@ -101,28 +104,7 @@ func (jc *JSONClient) HttpRequest(method, urlstr string, headers map[string]stri
 			return errors.New("res obj must be pointer")
 		}
 	}
-	var req *http.Request
-	var body_data io.Reader
-	method = strings.ToUpper(method)
-	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
-		urlstr = "http://" + urlstr
-	}
-	if bodyData != nil && len(bodyData) > 0 {
-		body_data = bytes.NewBuffer(bodyData)
-	}
-	req, err := http.NewRequest(method, urlstr, body_data)
-	if err != nil {
-		return err
-	}
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
-	rs, err := jc.Do(req)
-	if err != nil {
-		return err
-	}
-	defer rs.Body.Close()
-	res, err := ioutil.ReadAll(rs.Body)
+	res, err := httpclient.HttpRequest(jc, method, urlstr, headers, bodyData)
 	if err != nil {
 		return err
 	}

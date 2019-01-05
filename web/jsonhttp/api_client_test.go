@@ -6,6 +6,7 @@ import (
 )
 
 func TestHttp(t *testing.T) {
+	client.Debugger.DebugOn = true
 	res := make(map[string]interface{})
 	if err := Get("http://httpbin.org/get", &res); err != nil {
 		t.Fatal(err)
