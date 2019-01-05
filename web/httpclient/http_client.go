@@ -144,3 +144,19 @@ func (d *Debugger) Print(tm time.Time, state string, title string, detail interf
 		fmt.Printf("%v %s %s %v\n", tm.Format("2006-01-02 15:04:05"), state, title, detail)
 	}
 }
+
+type SimpleClient struct {
+	*http.Client
+	*Debugger
+}
+
+func GetSimpleClient(hc *http.Client) *SimpleClient {
+	return &SimpleClient{
+		Client:   hc,
+		Debugger: &Debugger{},
+	}
+}
+
+func (sc *SimpleClient) DoRequest(method, urlstr string, headers Header, bodyData []byte) (res []byte, err error) {
+	return HttpRequest(sc, method, urlstr, headers, bodyData)
+}
