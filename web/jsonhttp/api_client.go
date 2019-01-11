@@ -5,10 +5,12 @@ import (
 	"bytes"
 	sysjson "encoding/json"
 	"errors"
+	"fmt"
 	"github.com/qjpcpu/common/web/httpclient"
 	"github.com/qjpcpu/go-prettyjson"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"reflect"
 	"time"
 )
@@ -48,6 +50,16 @@ func Colored(obj interface{}) string {
 
 func Get(urlstr string, resObj interface{}, optional_header ...map[string]string) error {
 	return client.Get(urlstr, resObj, optional_header...)
+}
+
+func (jc *JSONClient) GetWithParams(urlstr string, params map[string]interface{}, resObj interface{}, optional_header ...map[string]string) error {
+	u, _ := url.Parse(urlstr)
+	qs := u.Query()
+	for k, v := range params {
+		qs.Add(k, fmt.Sprint(v))
+	}
+	u.RawQuery = qs.Encode()
+	return jc.Get(u.String(), resObj, optional_header...)
 }
 
 func (jc *JSONClient) Get(urlstr string, resObj interface{}, optional_header ...map[string]string) error {
