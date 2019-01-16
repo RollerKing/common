@@ -1,11 +1,9 @@
 package jsonhttp
 
 import (
-	"bufio"
-	"bytes"
-	sysjson "encoding/json"
 	"errors"
 	"fmt"
+	sysjson "github.com/qjpcpu/common/json"
 	"github.com/qjpcpu/common/web/httpclient"
 	"github.com/qjpcpu/go-prettyjson"
 	"net/http"
@@ -52,13 +50,19 @@ func Get(urlstr string, resObj interface{}, optional_header ...map[string]string
 	return client.Get(urlstr, resObj, optional_header...)
 }
 
-func (jc *JSONClient) GetWithParams(urlstr string, params map[string]interface{}, resObj interface{}, optional_header ...map[string]string) error {
+func (jc *JSONClient) GetWithParams(urlstr string, params interface{}, resObj interface{}, optional_header ...map[string]string) error {
 	u, _ := url.Parse(urlstr)
-	qs := u.Query()
-	for k, v := range params {
-		qs.Add(k, fmt.Sprint(v))
+	if params != nil {
+		qs := u.Query()
+		kv := make(map[string]interface{})
+		if err := sysjson.Unmarshal(sysjson.MustMarshal(params), &kv); err != nil {
+			return err
+		}
+		for k, v := range kv {
+			qs.Add(k, fmt.Sprint(v))
+		}
+		u.RawQuery = qs.Encode()
 	}
-	u.RawQuery = qs.Encode()
 	return jc.Get(u.String(), resObj, optional_header...)
 }
 
@@ -84,15 +88,10 @@ func (jc *JSONClient) Post(urlstr string, payload interface{}, resObj interface{
 	case nil:
 		// do nothing
 	default:
-		var buf bytes.Buffer
-		writer := bufio.NewWriter(&buf)
-		encoder := sysjson.NewEncoder(writer)
-		encoder.SetEscapeHTML(false)
-		if err := encoder.Encode(payload); err != nil {
+		var err error
+		if data, err = sysjson.Marshal(payload); err != nil {
 			return err
 		}
-		writer.Flush()
-		data = buf.Bytes()
 	}
 	header := map[string]string{"Content-Type": "application/json"}
 	if len(optional_header) > 0 {
@@ -121,9 +120,7 @@ func (jc *JSONClient) HttpRequest(method, urlstr string, headers map[string]stri
 		return err
 	}
 	if !abandonRes {
-		decoder := sysjson.NewDecoder(bytes.NewReader(res))
-		decoder.UseNumber()
-		if err = decoder.Decode(&resObj); err != nil {
+		if err = sysjson.Unmarshal(res, &resObj); err != nil {
 			return err
 		}
 	}

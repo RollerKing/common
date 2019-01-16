@@ -23,7 +23,9 @@ func Marshal(v interface{}) ([]byte, error) {
 
 // Unmarshal same as sys unmarshal
 func Unmarshal(data []byte, v interface{}) error {
-	return sysjson.Unmarshal(data, v)
+	decoder := sysjson.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	return decoder.Decode(v)
 }
 
 // MustMarshal must marshal successful
