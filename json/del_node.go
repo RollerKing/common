@@ -112,14 +112,14 @@ func walkJSON(root gjson.Result, dt *delNode) string {
 		}
 		return true
 	})
-	if len(content) == 0 {
-		return ""
-	} else {
-		return strings.Join(content, ",")
+	var ret string
+	if len(content) != 0 {
+		ret = strings.Join(content, ",")
 	}
+	return ret
 }
 
-// TrimJSON删除json部分属性
+// TrimJSON 删除json部分属性
 func TrimJSON(jsonstr string, paths ...string) string {
 	jsonRoot := gjson.Parse(jsonstr)
 	delTree := createDelTree(paths)
