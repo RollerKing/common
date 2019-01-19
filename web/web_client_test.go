@@ -1,27 +1,26 @@
 package web
 
 import (
+	"github.com/qjpcpu/common/web/httpclient"
 	"testing"
 )
 
 func TestClient(t *testing.T) {
 	c := NewClient()
-	c.EnableCookie()
-	if err := c.SetHeaders(map[string]string{
+	c.EnableCookie().SetDebug(true)
+	c.SetHeaders(map[string]string{
 		"love":       "34",
 		"user-agent": "safari",
-	}); err != nil {
-		t.Fatal(err)
-	}
+	})
 	res, err := c.Get("http://httpbin.org/get")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(string(res))
-	res, err = c.PostForm("http://httpbin.org/post", Form{
+	res, err = c.PostForm("http://httpbin.org/post", httpclient.Form{
 		"a": "text",
 		"b": 34,
-	}, Header{"Extract": "AAA"})
+	}, httpclient.Header{"Extract": "AAA"})
 	if err != nil {
 		t.Fatal(err)
 	}

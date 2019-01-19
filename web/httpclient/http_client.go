@@ -13,27 +13,36 @@ import (
 	"time"
 )
 
-type IHTTPDebugger interface {
+// IHTTPInspector debugger
+type IHTTPInspector interface {
 	IsDebugOn() bool
-	Print(tm time.Time, state string, title string, detail interface{})
+	SetDebug(bool)
+	Inspect(uri string, req *http.Request, res *http.Response, body []byte, cost time.Duration)
 }
 
+// IHTTPRequester internal http executor
 type IHTTPRequester interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+// IHTTPClient do http request
 type IHTTPClient interface {
 	IHTTPRequester
-	IHTTPDebugger
+	IHTTPInspector
 }
 
+// Header http header
 type Header map[string]string
+
+// Form http form
 type Form map[string]interface{}
 
-func Get(c IHTTPClient, uri string) (res []byte, err error) {
-	return HttpRequest(c, "GET", uri, nil, nil)
+// Get get req
+func Get(c IHTTPClient, uri string, extraHeader Header) (res []byte, err error) {
+	return HttpRequest(c, "GET", uri, extraHeader, nil)
 }
 
+// PostForm post form
 func PostForm(c IHTTPClient, urlstr string, data Form, extraHeader Header) (res []byte, err error) {
 	hder := make(Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
@@ -49,7 +58,7 @@ func PostForm(c IHTTPClient, urlstr string, data Form, extraHeader Header) (res 
 	return HttpRequest(c, "POST", urlstr, hder, []byte(values.Encode()))
 }
 
-// type of data can be struct/map or json string/bytes
+// PostJSON type of data can be struct/map or json string/bytes
 func PostJSON(c IHTTPClient, urlstr string, data interface{}, extraHeader Header) (res []byte, err error) {
 	hder := make(Header)
 	hder["Content-Type"] = "application/json; charset=UTF-8"
@@ -80,35 +89,32 @@ func PostJSON(c IHTTPClient, urlstr string, data interface{}, extraHeader Header
 	return HttpRequest(c, "POST", urlstr, hder, payload)
 }
 
+// HttpRequest http req
 func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData []byte) (res []byte, err error) {
+	var req *http.Request
+	var bodyReader io.Reader
+	var rs *http.Response
 	if c.IsDebugOn() {
 		tm := time.Now()
 		defer func() {
-			c.Print(tm, "BEGIN", method, urlstr)
-			c.Print(tm, "BEGIN", "HEADER", headers)
-			c.Print(tm, "BEGIN", "BODY", string(bodyData))
-			endat := time.Now()
-			c.Print(endat, "END", "RESPONSE", string(res))
-			c.Print(endat, "END", "COST", endat.Sub(tm))
+			c.Inspect(urlstr, req, rs, res, time.Since(tm))
 		}()
 	}
-	var req *http.Request
-	var body_data io.Reader
 	method = strings.ToUpper(method)
 	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
 		urlstr = "http://" + urlstr
 	}
 	if bodyData != nil && len(bodyData) > 0 {
-		body_data = bytes.NewBuffer(bodyData)
+		bodyReader = bytes.NewBuffer(bodyData)
 	}
-	req, err = http.NewRequest(method, urlstr, body_data)
+	req, err = http.NewRequest(method, urlstr, bodyReader)
 	if err != nil {
 		return res, err
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	rs, err := c.Do(req)
+	rs, err = c.Do(req)
 	if err != nil {
 		return res, err
 	}
@@ -120,47 +126,37 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	return res, nil
 }
 
+// Debugger debugger
 type Debugger struct {
 	DebugOn bool
 }
 
+// IsDebugOn is debug on
 func (d *Debugger) IsDebugOn() bool {
 	return d.DebugOn
 }
 
-func (d *Debugger) Print(tm time.Time, state string, title string, detail interface{}) {
-	switch title {
-	case "HEADER":
-		var dh string
-		if detail != nil {
-			for k, v := range detail.(Header) {
-				dh += k + ":" + v + "  "
-			}
+// SetDebug set debug on/off
+func (d *Debugger) SetDebug(set bool) {
+	d.DebugOn = set
+}
+
+// Inspect inspect http entity
+func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, body []byte, cost time.Duration) {
+	var reqHeaders, resHeaders []string
+	if req != nil {
+		for k := range req.Header {
+			reqHeaders = append(reqHeaders, k+"="+req.Header.Get(k))
 		}
-		fmt.Printf("%v %s %s %s\n", tm.Format("2006-01-02 15:04:05"), state, title, dh)
-	case "BODY":
-		fmt.Printf("%v %s %s %s\n", tm.Format("2006-01-02 15:04:05"), state, title, detail)
-	case "RESPONSE":
-		fmt.Printf("%v %s %s %s\n", tm.Format("2006-01-02 15:04:05"), state, title, detail)
-	case "COST":
-		fmt.Printf("%v %s %s %s\n", tm.Format("2006-01-02 15:04:05"), state, title, detail.(time.Duration).String())
-	default:
-		fmt.Printf("%v %s %s %v\n", tm.Format("2006-01-02 15:04:05"), state, title, detail)
 	}
-}
-
-type SimpleClient struct {
-	IHTTPRequester
-	*Debugger
-}
-
-func GetSimpleClient(hc IHTTPRequester) *SimpleClient {
-	return &SimpleClient{
-		IHTTPRequester: hc,
-		Debugger:       &Debugger{},
+	if res != nil {
+		for k := range res.Header {
+			resHeaders = append(resHeaders, k+"="+res.Header.Get(k))
+		}
 	}
-}
-
-func (sc *SimpleClient) DoRequest(method, urlstr string, headers Header, bodyData []byte) (res []byte, err error) {
-	return HttpRequest(sc, method, urlstr, headers, bodyData)
+	var status string
+	if res != nil {
+		status = res.Status
+	}
+	fmt.Printf("[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[res headers]: %s\n[response]:\n%s\n", req.Method, uri, status, cost, strings.Join(reqHeaders, "; "), strings.Join(resHeaders, "; "), string(body))
 }

@@ -4,7 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	sysjson "encoding/json"
+	"github.com/qjpcpu/go-prettyjson"
 )
+
+// PrettyMarshal colorful json
+func PrettyMarshal(v interface{}) []byte {
+	data, _ := prettyjson.Marshal(v)
+	return data
+}
 
 // Marshal disable html escape
 func Marshal(v interface{}) ([]byte, error) {

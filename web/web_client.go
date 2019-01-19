@@ -11,60 +11,67 @@ import (
 	"time"
 )
 
-var _client = NewClient()
-
-func NewClient(timeout ...time.Duration) *HttpClient {
-	var tm time.Duration
-	if len(timeout) > 0 {
-		tm = timeout[0]
-	} else {
-		tm = time.Second * 10
-	}
+// NewClient new client
+func NewClient() *HttpClient {
 	return &HttpClient{
-		Client:   &http.Client{Timeout: tm},
-		headlock: new(sync.RWMutex),
-		Headers:  make(httpclient.Header),
+		Client:         &http.Client{Timeout: 10 * time.Second},
+		headlock:       new(sync.RWMutex),
+		Headers:        make(httpclient.Header),
+		IHTTPInspector: &httpclient.Debugger{},
 	}
 }
 
+// HttpClient client
 type HttpClient struct {
 	Client   *http.Client
 	headlock *sync.RWMutex
 	Headers  httpclient.Header
-	httpclient.Debugger
+	httpclient.IHTTPInspector
 }
 
-// config
-func (client *HttpClient) AsDefault() {
-	_client = client
-}
-
+// Do do not invoke
 func (client *HttpClient) Do(req *http.Request) (*http.Response, error) {
 	return client.Client.Do(req)
 }
 
-func (client *HttpClient) EnableCookie() {
+// EnableCookie use cookie
+func (client *HttpClient) EnableCookie() *HttpClient {
 	jar, _ := cookiejar.New(nil)
 	client.Client.Jar = jar
+	return client
 }
 
-func (c *HttpClient) SetHeaders(h httpclient.Header) error {
+// SetTimeout timeout
+func (client *HttpClient) SetTimeout(tm time.Duration) *HttpClient {
+	client.Client.Timeout = tm
+	return client
+}
+
+// SetHeaders add headers
+func (c *HttpClient) SetHeaders(h httpclient.Header) *HttpClient {
 	c.headlock.Lock()
 	defer c.headlock.Unlock()
 	for k, v := range h {
 		c.Headers[k] = v
 	}
-	return nil
+	return c
 }
 
+// Get get url
 func (c *HttpClient) Get(uri string) (res []byte, err error) {
-	return httpclient.Get(c, uri)
+	return httpclient.Get(c, uri, c.Headers)
 }
 
+// PostForm post form
 func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 	for k, v := range extraHeader {
+		if v != "" {
+			hder[k] = v
+		}
+	}
+	for k, v := range c.Headers {
 		if v != "" {
 			hder[k] = v
 		}
@@ -76,10 +83,16 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader h
 	return httpclient.HttpRequest(c, "POST", urlstr, hder, []byte(values.Encode()))
 }
 
+// PostJSON post json
 func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/json; charset=UTF-8"
 	for k, v := range extraHeader {
+		if v != "" {
+			hder[k] = v
+		}
+	}
+	for k, v := range c.Headers {
 		if v != "" {
 			hder[k] = v
 		}
@@ -99,21 +112,4 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpc
 		}
 	}
 	return httpclient.HttpRequest(c, "POST", urlstr, hder, payload)
-}
-
-// defaults
-func SetHeaders(h httpclient.Header) error {
-	return _client.SetHeaders(h)
-}
-
-func Get(uri string) (res []byte, err error) {
-	return _client.Get(uri)
-}
-
-func PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
-	return _client.PostForm(urlstr, data, extraHeader)
-}
-
-func PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
-	return _client.PostJSON(urlstr, data, extraHeader)
 }
