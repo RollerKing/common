@@ -30,4 +30,7 @@ func TestPinyin(t *testing.T) {
 	str := "hi,你好吗?"
 	t.Log(str, "-->", ToPinyinString(str))
 	t.Log(str, "-->", ToPinyinStringWithSpace(str))
+	if ToPinyinStringWithSpace("貮萬") != "er wan" {
+		t.Fatal("繁体字")
+	}
 }
