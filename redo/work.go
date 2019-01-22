@@ -9,8 +9,10 @@ import (
 	"time"
 )
 
+// Job executable work
 type Job func(*RedoCtx)
 
+// RedoCtx redo context,control interval, stop now etc.
 type RedoCtx struct {
 	delayBeforeNextLoop time.Duration
 	stopRedo            bool
@@ -23,18 +25,22 @@ func newCtx(duration time.Duration) *RedoCtx {
 	}
 }
 
+// SetDelayBeforeNext set interval before next loop, only once affective
 func (ctx *RedoCtx) SetDelayBeforeNext(new_duration time.Duration) {
 	ctx.delayBeforeNextLoop = new_duration
 }
 
+// StartNextRightNow start next loop right now
 func (ctx *RedoCtx) StartNextRightNow() {
 	ctx.SetDelayBeforeNext(time.Duration(0))
 }
 
+// StopRedo stop whole redo after this job done
 func (ctx *RedoCtx) StopRedo() {
 	ctx.stopRedo = true
 }
 
+// WrapFunc helper function convert normal func(){} to Job
 func WrapFunc(work func()) Job {
 	return func(ctx *RedoCtx) {
 		work()
