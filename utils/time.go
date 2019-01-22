@@ -1,0 +1,8 @@
+package utils
+
+const (
+	TIME_LAYOUT      = "2006-01-02 15:04:05"
+	TIME_LAYOUT_DATE = "2006-01-02"
+	DATE_LAYOUT      = "20060102"
+	TIME_LAYOUT_TIME = "15:04:05"
+)
