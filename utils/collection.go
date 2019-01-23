@@ -141,12 +141,26 @@ func andStrings(list1 []string, list2 []string) []string {
 		}
 	}
 	if i < len(list1) {
-		res = append(res, list1[i:len(list1)]...)
+		res = append(res, list1[i:]...)
 	}
 	if j < len(list2) {
-		res = append(res, list2[j:len(list2)]...)
+		res = append(res, list2[j:]...)
 	}
 	return res
+}
+
+func EqualStrings(list1, list2 []string) bool {
+	if len(list1) != len(list2) {
+		return false
+	}
+	sort.Strings(list1)
+	sort.Strings(list2)
+	for i := 0; i < len(list1); i++ {
+		if list1[i] != list2[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func UniqStrings(list []string) []string {
@@ -155,11 +169,8 @@ func UniqStrings(list []string) []string {
 		memo[e] = 1
 	}
 	var arr []string
-	for _, e := range list {
-		if _, ok := memo[e]; ok {
-			arr = append(arr, e)
-			delete(memo, e)
-		}
+	for str := range memo {
+		arr = append(arr, str)
 	}
 	return arr
 }
@@ -173,7 +184,7 @@ func ContainString(list []string, target string) bool {
 	return false
 }
 
-func ContainsStringIgnoreCase(list []string, target string) bool {
+func ContainStringIgnoreCase(list []string, target string) bool {
 	target = strings.ToLower(target)
 	for _, e := range list {
 		if strings.ToLower(e) == target {
@@ -183,7 +194,7 @@ func ContainsStringIgnoreCase(list []string, target string) bool {
 	return false
 }
 
-func Partition(list []string, size int) [][]string {
+func PartitionStrings(list []string, size int) [][]string {
 	var res [][]string
 	for start := 0; start < len(list); start += size {
 		end := start + size
