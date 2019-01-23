@@ -161,8 +161,10 @@ func interactList(lists [][]string, start, end int) []string {
 		default:
 			right = interactList(lists, mid, end)
 		}
+		return interactStrings(left, right)
+	} else {
+		return left
 	}
-	return interactStrings(left, right)
 }
 
 func andList(lists [][]string, start, end int) []string {

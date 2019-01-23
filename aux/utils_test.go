@@ -30,4 +30,10 @@ func TestAndStrings(t *testing.T) {
 	if strings.Join(res, ".") != "b" {
 		t.Fatal(res)
 	}
+	if len(InteractStrings()) != 0 {
+		t.Fatal("err")
+	}
+	if str := strings.Join(InteractStrings(arr), "."); str != "a.b" {
+		t.Fatal(str)
+	}
 }
