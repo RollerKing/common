@@ -85,6 +85,30 @@ func ContainString(list []string, target string) bool {
 	return false
 }
 
+// 是否包含
+func ContainStrings(list []string, sub []string) bool {
+	memo := make(map[string]int)
+	for _, e := range list {
+		memo[e] = 1
+	}
+	for _, e := range sub {
+		if _, ok := memo[e]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// 文本是否包含任意特征串
+func ContainsAny(text string, sub []string) bool {
+	for _, str := range sub {
+		if strings.Contains(text, str) {
+			return true
+		}
+	}
+	return false
+}
+
 // 是否包含，不区分大小写
 func ContainStringIgnoreCase(list []string, target string) bool {
 	target = strings.ToLower(target)
