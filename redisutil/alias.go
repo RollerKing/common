@@ -2,11 +2,13 @@ package redisutil
 
 import (
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 )
 
 type Conn = redis.Conn
 type Script = redis.Script
 type Pool = redis.Pool
+type Cluster = redisc.Cluster
 
 var (
 	ErrNil = redis.ErrNil

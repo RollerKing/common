@@ -71,6 +71,11 @@ func GetPool() *redis.Pool {
 	return gRedisPool
 }
 
+// GetCluster get redis cluster
+func GetCluster() *redisc.Cluster {
+	return gRedisCluster
+}
+
 // CreatePool create redis pool
 func CreatePool(conn string, redisDB, passwd string, wrappers ...OptFunc) *redis.Pool {
 	var opt = &Options{
