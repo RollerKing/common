@@ -1,6 +1,7 @@
 package redisutil
 
 import (
+	"errors"
 	"github.com/gomodule/redigo/redis"
 	"github.com/mna/redisc"
 	"time"
@@ -128,12 +129,17 @@ func InitRedis(conn string, redisDB, passwd string, optfunc ...OptFunc) {
 }
 
 // InitCluster init default redis cluster
-func InitCluster(startupNodes []string, db, pwd string, wrappers ...OptFunc) {
-	gRedisCluster = CreateCluster(startupNodes, db, pwd, wrappers...)
+func InitCluster(startupNodes []string, db, pwd string, wrappers ...OptFunc) error {
+	var err error
+	gRedisCluster, err = CreateCluster(startupNodes, db, pwd, wrappers...)
+	return err
 }
 
 // CreateCluster create redis cluster
-func CreateCluster(startupNodes []string, db, pwd string, wrappers ...OptFunc) *redisc.Cluster {
+func CreateCluster(startupNodes []string, db, pwd string, wrappers ...OptFunc) (*redisc.Cluster, error) {
+	if len(startupNodes) == 0 {
+		return nil, errors.New("no redis cluster startup nodes")
+	}
 	clusterConfig := &RedisClusterInfo{
 		StartupNodes: startupNodes,
 		DB:           db,
@@ -152,11 +158,12 @@ func CreateCluster(startupNodes []string, db, pwd string, wrappers ...OptFunc) *
 		fn(opt)
 	}
 	clusterConfig.Options = *opt
-	return &redisc.Cluster{
+	cluster := &redisc.Cluster{
 		StartupNodes: clusterConfig.StartupNodes,
 		DialOptions:  clusterDialOptions(clusterConfig),
 		CreatePool:   clusterCreatePool(clusterConfig),
 	}
+	return cluster, cluster.Refresh()
 }
 
 func clusterDialOptions(ci *RedisClusterInfo) []redis.DialOption {
