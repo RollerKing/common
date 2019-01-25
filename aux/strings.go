@@ -154,6 +154,17 @@ func MapStrings(list []string, f func(string) string) []string {
 	return list
 }
 
+// 是否纯数字
+func IsDigit(str string) bool {
+	data := []byte(str)
+	for _, b := range data {
+		if b < 48 || b > 57 {
+			return false
+		}
+	}
+	return true
+}
+
 // below are helpers
 func interactStrings(list1 []string, list2 []string) []string {
 	if len(list1) == 0 || len(list2) == 0 {
