@@ -50,3 +50,25 @@ func MustUnmarshal(data []byte, v interface{}) {
 		panic(err)
 	}
 }
+
+// DecodeJSONP 剔除jsonp包裹层
+func DecodeJSONP(str []byte) []byte {
+	var start, end int
+	for i := 0; i < len(str); i++ {
+		if str[i] == '(' {
+			start = i
+			break
+		}
+	}
+	for i := len(str) - 1; i >= 0; i-- {
+		if str[i] == ')' {
+			end = i
+			break
+		}
+	}
+	if end > 0 {
+		return str[start+1 : end]
+	} else {
+		return str
+	}
+}

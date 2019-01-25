@@ -85,6 +85,19 @@ func ContainString(list []string, target string) bool {
 	return false
 }
 
+// 移除某个字符串
+func RemoveString(list []string, str string) []string {
+	offset := 0
+	for i, ele := range list {
+		if ele == str {
+			offset++
+		} else if offset > 0 {
+			list[i-offset] = ele
+		}
+	}
+	return list[:len(list)-offset]
+}
+
 // 是否包含
 func ContainStrings(list []string, sub []string) bool {
 	memo := make(map[string]int)

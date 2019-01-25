@@ -37,3 +37,26 @@ func TestAndStrings(t *testing.T) {
 		t.Fatal(str)
 	}
 }
+
+func TestOStrings(t *testing.T) {
+	arr := []string{}
+	if len(RemoveString(arr, "")) != 0 {
+		t.Fatal("error")
+	}
+	res := strings.Join(RemoveString([]string{"a", "b", "c", "d", "b"}, "a"), ".")
+	if res != "b.c.d.b" {
+		t.Fatal(res)
+	}
+	res = strings.Join(RemoveString([]string{"a", "b", "c", "d", "b"}, "b"), ".")
+	if res != "a.c.d" {
+		t.Fatal(res)
+	}
+	res = strings.Join(RemoveString([]string{"a"}, "a"), ".")
+	if res != "" {
+		t.Fatal(res)
+	}
+	res = strings.Join(RemoveString([]string{"b", "a"}, "a"), ".")
+	if res != "b" {
+		t.Fatal(res)
+	}
+}

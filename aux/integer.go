@@ -4,6 +4,16 @@ import (
 	"sort"
 )
 
+// 包含
+func ContainInt(nums []int, num int) bool {
+	for _, n := range nums {
+		if n == num {
+			return true
+		}
+	}
+	return false
+}
+
 // 求并集
 func MergeInts(lists ...[]int) []int {
 	for i := range lists {
