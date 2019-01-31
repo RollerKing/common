@@ -3,7 +3,11 @@ package mdhtml
 var githubCSS = `
 <style type="text/css">
 html, body {
-    color: black; }
+    color: black;
+    padding-left: 5%;
+    padding-right: 5%;
+    padding-top: 1%;
+ }
   
   *:not('#mkdbuttons') {
     margin: 0;
