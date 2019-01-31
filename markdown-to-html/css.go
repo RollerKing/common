@@ -4,8 +4,8 @@ var githubCSS = `
 <style type="text/css">
 html, body {
     color: black;
-    padding-left: 5%;
-    padding-right: 5%;
+    padding-left: 3%;
+    padding-right: 3%;
     padding-top: 1%;
  }
   
