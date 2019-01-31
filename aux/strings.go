@@ -267,3 +267,41 @@ func andStrings(list1 []string, list2 []string) []string {
 	}
 	return res
 }
+
+// UnderlineLowercase 将大写单词转化成小写加下划线
+func UnderlineLowercase(name string) string {
+	data := []byte(name)
+	var res []byte
+	var i int
+	for i < len(data) {
+		if data[i] >= 65 && data[i] <= 90 {
+			start := i
+			i++
+			for i < len(data) {
+				if data[i] < 65 || data[i] > 90 {
+					break
+				}
+				i++
+			}
+			res = append(res, byte(95))
+			if i < len(data) && i-start >= 2 {
+				res = append(res, data[start:i-1]...)
+				res = append(res, byte(95), data[i-1])
+			} else {
+				res = append(res, data[start:i]...)
+			}
+			continue
+		}
+		res = append(res, data[i])
+		i++
+	}
+	if len(res) > 0 && res[0] == byte(95) {
+		res = res[1:]
+	}
+	for i, b := range res {
+		if b >= 65 && b <= 90 {
+			res[i] = b + 32
+		}
+	}
+	return string(res)
+}

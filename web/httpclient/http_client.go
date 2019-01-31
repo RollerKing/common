@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -159,4 +160,129 @@ func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, bo
 		status = res.Status
 	}
 	fmt.Printf("[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[res headers]: %s\n[response]:\n%s\n", req.Method, uri, status, cost, strings.Join(reqHeaders, "; "), strings.Join(resHeaders, "; "), string(body))
+}
+
+func SimpleKVToQs(obj interface{}) url.Values {
+	if mp, ok := obj.(map[string]interface{}); ok {
+		return mapToQs(mp)
+	}
+	if mp, ok := obj.(*map[string]interface{}); ok {
+		return mapToQs(*mp)
+	}
+	if mp, ok := obj.(map[string]string); ok {
+		vals := url.Values{}
+		for k, v := range mp {
+			vals.Add(k, v)
+		}
+		return vals
+	}
+	return structToQs(obj)
+}
+
+func structToQs(obj interface{}) url.Values {
+	vals := url.Values{}
+	value := reflect.ValueOf(obj)
+	if value.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+	num := value.NumField()
+	for i := 0; i < num; i++ {
+		valueField := value.Field(i)
+		typeField := value.Type().Field(i)
+		if valueField.Interface() != nil {
+			var kstr, vstr string
+			tp := typeField.Type
+			if tp.Kind() == reflect.Ptr {
+				tp = typeField.Type.Elem()
+				valueField = valueField.Elem()
+			}
+			if tp.Kind() == reflect.Struct && tp.String() == "time.Time" {
+				if valueField.IsValid() {
+					vstr = valueField.Interface().(time.Time).Format("2006-01-02 15:04:05")
+				}
+			} else if tp.Kind() == reflect.Slice || tp.Kind() == reflect.Array {
+				size := valueField.Len()
+				list := make([]string, size)
+				for i := 0; i < size; i++ {
+					list[i] = fmt.Sprint(valueField.Index(i).Interface())
+				}
+				vstr = strings.Join(list, ",")
+			} else {
+				vstr = fmt.Sprint(valueField.Interface())
+			}
+			tag := strings.Split(typeField.Tag.Get("qs"), ",")[0]
+			if tag != "" {
+				kstr = tag
+			} else {
+				kstr = lowercase_underline(typeField.Name)
+			}
+			if vstr != "" {
+				vals.Add(kstr, vstr)
+			}
+		}
+	}
+	return vals
+}
+
+func mapToQs(hash map[string]interface{}) url.Values {
+	vals := url.Values{}
+	for k, v := range hash {
+		if v != nil {
+			var vstr string
+			tp := reflect.TypeOf(v)
+			value := reflect.ValueOf(v)
+			if tp.Kind() == reflect.Ptr {
+				tp = tp.Elem()
+				value = value.Elem()
+			}
+			if tp.Kind() == reflect.Struct && tp.String() == "time.Time" {
+				vstr = value.Interface().(time.Time).Format("2006-01-02 15:04:05")
+			} else if tp.Kind() == reflect.Slice || tp.Kind() == reflect.Array {
+				size := value.Len()
+				list := make([]string, size)
+				for i := 0; i < size; i++ {
+					list[i] = fmt.Sprint(value.Index(i).Interface())
+				}
+				vstr = strings.Join(list, ",")
+			} else {
+				vstr = fmt.Sprint(v)
+			}
+			if vstr != "" {
+				vals.Add(k, vstr)
+			}
+		}
+	}
+	return vals
+}
+
+func lowercase_underline(name string) string {
+	data := []byte(name)
+	var res []byte
+	var i int
+	for i < len(data) {
+		if data[i] >= 65 && data[i] <= 90 {
+			start := i
+			i++
+			for i < len(data) {
+				if data[i] < 65 || data[i] > 90 {
+					break
+				}
+				i++
+			}
+			res = append(res, byte(95))
+			if i < len(data) && i-start >= 2 {
+				res = append(res, data[start:i-1]...)
+				res = append(res, byte(95), data[i-1])
+			} else {
+				res = append(res, data[start:i]...)
+			}
+			continue
+		}
+		res = append(res, data[i])
+		i++
+	}
+	if len(res) > 0 && res[0] == byte(95) {
+		res = res[1:]
+	}
+	return strings.ToLower(string(res))
 }

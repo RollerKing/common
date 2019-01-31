@@ -2,7 +2,6 @@ package jsonhttp
 
 import (
 	"errors"
-	"fmt"
 	sysjson "github.com/qjpcpu/common/json"
 	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
@@ -56,13 +55,10 @@ func (js *JSONClient) Do(req *http.Request) (*http.Response, error) {
 func (jc *JSONClient) GetWithParams(urlstr string, params interface{}, resObj interface{}, optionalHeader ...map[string]string) error {
 	u, _ := url.Parse(urlstr)
 	if params != nil {
+		ps := httpclient.SimpleKVToQs(params)
 		qs := u.Query()
-		kv := make(map[string]interface{})
-		if err := sysjson.Unmarshal(sysjson.MustMarshal(params), &kv); err != nil {
-			return err
-		}
-		for k, v := range kv {
-			qs.Add(k, fmt.Sprint(v))
+		for k := range ps {
+			qs.Add(k, ps.Get(k))
 		}
 		u.RawQuery = qs.Encode()
 	}
