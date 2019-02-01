@@ -43,6 +43,20 @@ func Get(c IHTTPClient, uri string, extraHeader Header) (res []byte, err error) 
 	return HttpRequest(c, "GET", uri, extraHeader, nil)
 }
 
+// GetWithParams get with qs object(map or struct)
+func GetWithParams(c IHTTPClient, uri string, params interface{}, extraHeader Header) ([]byte, error) {
+	u, _ := url.Parse(uri)
+	if params != nil {
+		ps := SimpleKVToQs(params)
+		qs := u.Query()
+		for k := range ps {
+			qs.Add(k, ps.Get(k))
+		}
+		u.RawQuery = qs.Encode()
+	}
+	return Get(c, u.String(), extraHeader)
+}
+
 // PostForm post form
 func PostForm(c IHTTPClient, urlstr string, data Form, extraHeader Header) (res []byte, err error) {
 	hder := make(Header)

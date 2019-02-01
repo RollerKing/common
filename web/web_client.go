@@ -62,6 +62,11 @@ func (c *HttpClient) Get(uri string) (res []byte, err error) {
 	return httpclient.Get(c, uri, c.Headers)
 }
 
+// GetWithParams with qs
+func (c *HttpClient) GetWithParams(uri string, params interface{}) (res []byte, err error) {
+	return httpclient.GetWithParams(c, uri, params, c.Headers)
+}
+
 // PostForm post form
 func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
