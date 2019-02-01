@@ -21,7 +21,7 @@ type MongoConfig struct {
 	Timeout        int      `json:"timeout" toml:"timeout"`
 	Username       string   `json:"username" toml:"username"`
 	Password       string   `json:"password" toml:"password"`
-	Mode           *int     `json:"mode" toml:"mode"`
+	Mode           *int     `json:"mode,omitempty" toml:"mode,omitempty"`
 	Alias          string   `json:"alias" toml:"alias"`
 }
 
@@ -47,25 +47,27 @@ func (mc *MongoConfig) getMongoDialInfo() *mgo.DialInfo {
 	}
 }
 
+// InitMongo init mongo session
 func InitMongo(mc *MongoConfig) error {
 	dialInfo := mc.getMongoDialInfo()
 	s, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return err
 	}
-	s.SetMode(*mc.Mode, true)
+	s.SetMode(mgo.Mode(*mc.Mode), true)
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
 	if _, ok := sessions[mc.Alias]; ok {
-		return errors.New("duplicate session")
+		return errors.New("duplicate session:" + mc.Alias)
 	}
-	sessions[mc.Alias] = s
-	if mc.Alias == "" {
+	if len(sessions) == 0 {
 		defaultSession = s
 	}
+	sessions[mc.Alias] = s
 	return nil
 }
 
+// GetSession get mongo session
 func GetSession() *mgo.Session {
 	if defaultSession != nil {
 		return defaultSession.Copy()
@@ -73,6 +75,7 @@ func GetSession() *mgo.Session {
 	return nil
 }
 
+// GetSessionBy get session by alias
 func GetSessionBy(alias string) *mgo.Session {
 	sessionLock.RLock()
 	defer sessionLock.RUnlock()
