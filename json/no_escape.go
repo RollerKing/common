@@ -7,6 +7,8 @@ import (
 	"github.com/qjpcpu/go-prettyjson"
 )
 
+type RawMessage = sysjson.RawMessage
+
 // PrettyMarshal colorful json
 func PrettyMarshal(v interface{}) []byte {
 	data, _ := prettyjson.Marshal(v)
