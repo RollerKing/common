@@ -18,7 +18,7 @@ import (
 type IHTTPInspector interface {
 	IsDebugOn() bool
 	SetDebug(bool)
-	Inspect(uri string, req *http.Request, res *http.Response, body []byte, cost time.Duration)
+	Inspect(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration)
 }
 
 // IHTTPRequester internal http executor
@@ -112,7 +112,7 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	if c.IsDebugOn() {
 		tm := time.Now()
 		defer func() {
-			c.Inspect(urlstr, req, rs, res, time.Since(tm))
+			c.Inspect(urlstr, req, rs, bodyData, res, time.Since(tm))
 		}()
 	}
 	method = strings.ToUpper(method)
@@ -157,7 +157,7 @@ func (d *Debugger) SetDebug(set bool) {
 }
 
 // Inspect inspect http entity
-func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, body []byte, cost time.Duration) {
+func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) {
 	var reqHeaders, resHeaders []string
 	if req != nil {
 		for k := range req.Header {
@@ -173,7 +173,7 @@ func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, bo
 	if res != nil {
 		status = res.Status
 	}
-	fmt.Printf("[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[res headers]: %s\n[response]:\n%s\n", req.Method, uri, status, cost, strings.Join(reqHeaders, "; "), strings.Join(resHeaders, "; "), string(body))
+	fmt.Printf("[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n", req.Method, uri, status, cost, strings.Join(reqHeaders, "; "), string(payload), strings.Join(resHeaders, "; "), string(body))
 }
 
 func SimpleKVToQs(obj interface{}) url.Values {
