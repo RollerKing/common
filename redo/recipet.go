@@ -28,17 +28,19 @@ const (
 // Recipet handler of job
 type Recipet struct {
 	done        chan struct{}
-	pls_exit    chan struct{}
+	plsExit     chan struct{}
+	wakeup      chan struct{}
 	sigchan     chan os.Signal
 	catchSignal bool
 	state       JobState
-	stop_type   StopType // signal or user request stop
+	stopType    StopType // signal or user request stop
 	*sync.Mutex
 }
 
 func newRecipet() *Recipet {
 	return &Recipet{
-		pls_exit:    make(chan struct{}, 1),
+		plsExit:     make(chan struct{}, 1),
+		wakeup:      make(chan struct{}, 1),
 		done:        make(chan struct{}, 1),
 		state:       JobRunning,
 		sigchan:     make(chan os.Signal, 1),
@@ -52,7 +54,20 @@ func (m *Recipet) Stop() bool {
 	return m.stopWithRequest(STOP_USER)
 }
 
-func (m *Recipet) stopWithRequest(stop_type StopType) bool {
+// Wakeup wake up right now
+func (m *Recipet) Wakeup() bool {
+	if m.state != JobRunning {
+		return false
+	}
+	select {
+	case m.wakeup <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *Recipet) stopWithRequest(stopType StopType) bool {
 	var op = false
 	if m.state != JobRunning {
 		return op
@@ -60,10 +75,10 @@ func (m *Recipet) stopWithRequest(stop_type StopType) bool {
 	m.Lock()
 	if m.state == JobRunning {
 		m.state = JobStopping
-		if stop_type == STOP_USER {
-			m.pls_exit <- struct{}{}
+		if stopType == STOP_USER {
+			m.plsExit <- struct{}{}
 		}
-		m.stop_type = stop_type
+		m.stopType = stopType
 		op = true
 	}
 	m.Unlock()
@@ -71,12 +86,17 @@ func (m *Recipet) stopWithRequest(stop_type StopType) bool {
 }
 
 func (m *Recipet) closeChannels() {
-	close(m.pls_exit)
+	close(m.plsExit)
 	close(m.done)
+	close(m.wakeup)
 }
 
 func (m *Recipet) requestStopChan() <-chan struct{} {
-	return m.pls_exit
+	return m.plsExit
+}
+
+func (m *Recipet) wakeupChan() <-chan struct{} {
+	return m.wakeup
 }
 
 // WaitChan channel would get msg when job done
@@ -87,7 +107,7 @@ func (m *Recipet) WaitChan() <-chan struct{} {
 // Wait wait job done
 func (m *Recipet) Wait() StopType {
 	<-m.WaitChan()
-	return m.stop_type
+	return m.stopType
 }
 
 // Concat combine serveral recipets into single one
@@ -136,7 +156,7 @@ func (cr *CombiRecipt) Stop() bool {
 // Wait wait all job done
 func (cr *CombiRecipt) Wait() StopType {
 	<-cr.WaitChan()
-	return cr.recipets[0].stop_type
+	return cr.recipets[0].stopType
 }
 
 // WaitChan get msg when all job done
