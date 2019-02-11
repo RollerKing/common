@@ -623,14 +623,18 @@ func Dedup(slice interface{}) {
 }
 
 // Struct2Map convert struct to map[string]interface{}
-func Struct2Map(obj interface{}) map[string]interface{} {
+func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	res := make(map[string]interface{})
 	val := reflect.ValueOf(obj)
 	if val.Type().Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+	tagLabel := `json`
+	if len(tagName) > 0 && tagName[0] != "" {
+		tagLabel = tagName[0]
+	}
 	for i := 0; i < val.Type().NumField(); i++ {
-		tag := val.Type().Field(i).Tag.Get("json")
+		tag := val.Type().Field(i).Tag.Get(tagLabel)
 		name := val.Type().Field(i).Name
 		if arr := strings.SplitN(tag, ",", 2); len(arr) > 0 && arr[0] != "" {
 			name = arr[0]
