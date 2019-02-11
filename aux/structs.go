@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -619,4 +620,60 @@ func Dedup(slice interface{}) {
 		}
 	}
 	v.Set(uniq)
+}
+
+// Struct2Map convert struct to map[string]interface{}
+func Struct2Map(obj interface{}) map[string]interface{} {
+	res := make(map[string]interface{})
+	val := reflect.ValueOf(obj)
+	if val.Type().Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	for i := 0; i < val.Type().NumField(); i++ {
+		tag := val.Type().Field(i).Tag.Get("json")
+		name := val.Type().Field(i).Name
+		if arr := strings.SplitN(tag, ",", 2); len(arr) > 0 && arr[0] != "" {
+			name = arr[0]
+		}
+		field := val.Field(i)
+		kind := field.Kind()
+		isPtr := field.Type().Kind() == reflect.Ptr
+		if isPtr {
+			if field.IsNil() {
+				if !strings.Contains(tag, ",omitempty") {
+					res[name] = nil
+				}
+				continue
+			}
+			field = field.Elem()
+			kind = field.Kind()
+		}
+		switch kind {
+		case reflect.Slice:
+			list := make([]interface{}, field.Len())
+			for j := 0; j < field.Len(); j++ {
+				iv := field.Index(j)
+				if iv.Type().Kind() == reflect.Ptr {
+					iv = field.Elem()
+				}
+				if iv.Kind() == reflect.Struct && iv.Type().String() != "time.Time" {
+					list[j] = Struct2Map(iv.Interface())
+				} else {
+					list[j] = iv.Interface()
+				}
+			}
+			res[name] = list
+		case reflect.Struct:
+			if field.Type().String() == "time.Time" {
+				res[name] = field.Interface()
+			} else {
+				res[name] = Struct2Map(field.Interface())
+			}
+		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64, reflect.String:
+			res[name] = field.Interface()
+		default:
+			res[name] = field.Interface()
+		}
+	}
+	return res
 }

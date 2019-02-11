@@ -1,8 +1,10 @@
 package aux
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAndStrings(t *testing.T) {
@@ -59,4 +61,32 @@ func TestOStrings(t *testing.T) {
 	if res != "b" {
 		t.Fatal(res)
 	}
+}
+
+func TestStruct2Map(t *testing.T) {
+	i := 12
+	obj := struct {
+		Time   time.Time `json:"time"`
+		Text   string    `json:"txt,omitempty"`
+		Num    int       `json:"num"`
+		NumPtr *int      `json:"num_ptr,omitempty"`
+		Objs   []struct {
+			A string
+			B int `json:"b"`
+		}
+	}{
+		NumPtr: &i,
+		Objs: []struct {
+			A string
+			B int `json:"b"`
+		}{
+			{
+				A: "aaa",
+				B: 23,
+			},
+		},
+	}
+	m := Struct2Map(&obj)
+	data, _ := json.Marshal(m)
+	t.Log(string(data))
 }
