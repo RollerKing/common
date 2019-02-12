@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"github.com/qjpcpu/common/web/httpclient"
 	"testing"
 )
@@ -8,10 +9,6 @@ import (
 func TestClient(t *testing.T) {
 	c := NewClient()
 	c.EnableCookie().SetDebug(true)
-	c.SetHeaders(map[string]string{
-		"love":       "34",
-		"user-agent": "safari",
-	})
 	res, err := c.Get("http://httpbin.org/get")
 	if err != nil {
 		t.Fatal(err)
@@ -33,4 +30,19 @@ func TestClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(string(res))
+}
+
+func TestResolve(t *testing.T) {
+	c := NewClient()
+	addr := "http://api.ipify.org/?format=json"
+	res := struct {
+		IP string `json:"ip"`
+	}{}
+	if err := c.GetResolver(&res, json.Unmarshal).Resolve(c.Get(addr)); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(res)
+	if res.IP == "" {
+		t.Fatal("resolv fail")
+	}
 }

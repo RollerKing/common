@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
@@ -24,6 +25,23 @@ type HttpClient struct {
 	httpclient.IHTTPInspector
 }
 
+// ResponseResolver res resolver
+type ResponseResolver struct {
+	fn     httpclient.UnmarshalFunc
+	resPtr interface{}
+}
+
+// Resolve response
+func (rr *ResponseResolver) Resolve(data []byte, err error) error {
+	if err != nil {
+		return err
+	}
+	if rr.fn == nil || rr.resPtr == nil {
+		return errors.New("bad http response resolver")
+	}
+	return rr.fn(data, rr.resPtr)
+}
+
 // Do do not invoke
 func (client *HttpClient) Do(req *http.Request) (*http.Response, error) {
 	return client.Client.Do(req)
@@ -38,7 +56,9 @@ func (client *HttpClient) EnableCookie() *HttpClient {
 
 // SetTimeout timeout
 func (client *HttpClient) SetTimeout(tm time.Duration) *HttpClient {
-	client.Client.Timeout = tm
+	if tm > time.Duration(0) {
+		client.Client.Timeout = tm
+	}
 	return client
 }
 
@@ -99,7 +119,15 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpc
 	return httpclient.HttpRequest(c, "POST", urlstr, hder, payload)
 }
 
-// Resolve response
-func (c *HttpClient) Resolve(data []byte, err error, resPtr interface{}, fn httpclient.UnmarshalFunc) error {
-	return httpclient.Resolve(data, err, resPtr, fn)
+// GetResolver get response resolver
+func (c *HttpClient) GetResolver(resPtr interface{}, fn httpclient.UnmarshalFunc) *ResponseResolver {
+	return &ResponseResolver{
+		resPtr: resPtr,
+		fn:     fn,
+	}
+}
+
+// GetJSONResolver get json response resolver
+func (c *HttpClient) GetJSONResolver(resPtr interface{}) *ResponseResolver {
+	return c.GetResolver(resPtr, json.Unmarshal)
 }
