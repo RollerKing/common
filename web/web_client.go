@@ -73,17 +73,23 @@ func (c *HttpClient) GetWithParams(uri string, params interface{}) (res []byte, 
 }
 
 // Post data
-func (c *HttpClient) Post(urlstr string, data []byte, extraHeader httpclient.Header) (res []byte, err error) {
+func (c *HttpClient) Post(urlstr string, data []byte, extraHeaders ...httpclient.Header) (res []byte, err error) {
+	extraHeader := make(httpclient.Header)
+	if len(extraHeaders) > 0 {
+		extraHeader = extraHeaders[0]
+	}
 	return httpclient.HttpRequest(c, "POST", urlstr, extraHeader, data)
 }
 
 // PostForm post form
-func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
+func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeaders ...httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded"
-	for k, v := range extraHeader {
-		if v != "" {
-			hder[k] = v
+	for _, extraHeader := range extraHeaders {
+		for k, v := range extraHeader {
+			if v != "" {
+				hder[k] = v
+			}
 		}
 	}
 	values := url.Values{}
@@ -94,12 +100,14 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader h
 }
 
 // PostJSON post json
-func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
+func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/json"
-	for k, v := range extraHeader {
-		if v != "" {
-			hder[k] = v
+	for _, extraHeader := range extraHeaders {
+		for k, v := range extraHeader {
+			if v != "" {
+				hder[k] = v
+			}
 		}
 	}
 	var payload []byte
