@@ -80,7 +80,7 @@ func (c *HttpClient) Post(urlstr string, data []byte, extraHeader httpclient.Hea
 // PostForm post form
 func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
-	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+	hder["Content-Type"] = "application/x-www-form-urlencoded"
 	for k, v := range extraHeader {
 		if v != "" {
 			hder[k] = v
@@ -96,7 +96,7 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader h
 // PostJSON post json
 func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpclient.Header) (res []byte, err error) {
 	hder := make(httpclient.Header)
-	hder["Content-Type"] = "application/json; charset=UTF-8"
+	hder["Content-Type"] = "application/json"
 	for k, v := range extraHeader {
 		if v != "" {
 			hder[k] = v
