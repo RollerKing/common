@@ -7,25 +7,20 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"sync"
 	"time"
 )
 
 // NewClient new client
 func NewClient() *HttpClient {
 	return &HttpClient{
-		Client:         &http.Client{Timeout: 10 * time.Second},
-		headlock:       new(sync.RWMutex),
-		Headers:        make(httpclient.Header),
+		Client:         &http.Client{Timeout: 5 * time.Second},
 		IHTTPInspector: &httpclient.Debugger{},
 	}
 }
 
 // HttpClient client
 type HttpClient struct {
-	Client   *http.Client
-	headlock *sync.RWMutex
-	Headers  httpclient.Header
+	Client *http.Client
 	httpclient.IHTTPInspector
 }
 
@@ -47,24 +42,19 @@ func (client *HttpClient) SetTimeout(tm time.Duration) *HttpClient {
 	return client
 }
 
-// SetHeaders add headers
-func (c *HttpClient) SetHeaders(h httpclient.Header) *HttpClient {
-	c.headlock.Lock()
-	defer c.headlock.Unlock()
-	for k, v := range h {
-		c.Headers[k] = v
-	}
-	return c
-}
-
 // Get get url
 func (c *HttpClient) Get(uri string) (res []byte, err error) {
-	return httpclient.Get(c, uri, c.Headers)
+	return httpclient.Get(c, uri, nil)
 }
 
 // GetWithParams with qs
 func (c *HttpClient) GetWithParams(uri string, params interface{}) (res []byte, err error) {
-	return httpclient.GetWithParams(c, uri, params, c.Headers)
+	return httpclient.GetWithParams(c, uri, params, nil)
+}
+
+// Post data
+func (c *HttpClient) Post(urlstr string, data []byte, extraHeader httpclient.Header) (res []byte, err error) {
+	return httpclient.HttpRequest(c, "POST", urlstr, extraHeader, data)
 }
 
 // PostForm post form
@@ -72,11 +62,6 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeader h
 	hder := make(httpclient.Header)
 	hder["Content-Type"] = "application/x-www-form-urlencoded; charset=UTF-8"
 	for k, v := range extraHeader {
-		if v != "" {
-			hder[k] = v
-		}
-	}
-	for k, v := range c.Headers {
 		if v != "" {
 			hder[k] = v
 		}
@@ -97,11 +82,6 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpc
 			hder[k] = v
 		}
 	}
-	for k, v := range c.Headers {
-		if v != "" {
-			hder[k] = v
-		}
-	}
 	var payload []byte
 	switch d := data.(type) {
 	case string:
@@ -117,4 +97,9 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeader httpc
 		}
 	}
 	return httpclient.HttpRequest(c, "POST", urlstr, hder, payload)
+}
+
+// Resolve response
+func (c *HttpClient) Resolve(data []byte, err error, resPtr interface{}, fn httpclient.UnmarshalFunc) error {
+	return httpclient.Resolve(data, err, resPtr, fn)
 }

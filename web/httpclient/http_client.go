@@ -14,6 +14,9 @@ import (
 	"time"
 )
 
+// UnmarshalFunc data bytes to object pointer
+type UnmarshalFunc func([]byte, interface{}) error
+
 // IHTTPInspector debugger
 type IHTTPInspector interface {
 	IsDebugOn() bool
@@ -102,6 +105,14 @@ func PostJSON(c IHTTPClient, urlstr string, data interface{}, extraHeader Header
 		payload = buf.Bytes()
 	}
 	return HttpRequest(c, "POST", urlstr, hder, payload)
+}
+
+// Resolve response
+func Resolve(data []byte, err error, resPtr interface{}, fn UnmarshalFunc) error {
+	if err != nil {
+		return err
+	}
+	return fn(data, resPtr)
 }
 
 // HttpRequest http req

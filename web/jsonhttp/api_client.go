@@ -21,7 +21,7 @@ type JSONClient struct {
 func NewClient() *JSONClient {
 	jc := &JSONClient{
 		Client: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 5 * time.Second,
 		},
 		IHTTPInspector: &httpclient.Debugger{},
 	}
