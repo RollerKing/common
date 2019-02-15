@@ -21,7 +21,7 @@ type UnmarshalFunc func([]byte, interface{}) error
 type IHTTPInspector interface {
 	IsDebugOn() bool
 	SetDebug(bool)
-	Inspect(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration)
+	Inspect(TraceData)
 }
 
 // IHTTPRequester internal http executor
@@ -123,7 +123,8 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	if c.IsDebugOn() {
 		tm := time.Now()
 		defer func() {
-			c.Inspect(urlstr, req, rs, bodyData, res, time.Since(tm))
+			trdata := buildTraceData(urlstr, req, rs, bodyData, res, time.Since(tm))
+			c.Inspect(trdata)
 		}()
 	}
 	method = strings.ToUpper(method)
@@ -157,6 +158,38 @@ type Debugger struct {
 	DebugOn bool
 }
 
+// TraceData data
+type TraceData struct {
+	Method     string
+	URL        string
+	ReqHeader  http.Header
+	ReqPayload []byte
+	Cost       time.Duration
+	StatusCode int
+	Status     string
+	ResHeader  http.Header
+	ResData    []byte
+}
+
+func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) TraceData {
+	tr := TraceData{
+		URL:        uri,
+		Cost:       cost,
+		ReqPayload: payload,
+		ResData:    body,
+	}
+	if req != nil {
+		tr.Method = req.Method
+		tr.ReqHeader = req.Header
+	}
+	if res != nil {
+		tr.Status = res.Status
+		tr.StatusCode = res.StatusCode
+		tr.ResHeader = res.Header
+	}
+	return tr
+}
+
 // IsDebugOn is debug on
 func (d *Debugger) IsDebugOn() bool {
 	return d.DebugOn
@@ -168,23 +201,25 @@ func (d *Debugger) SetDebug(set bool) {
 }
 
 // Inspect inspect http entity
-func (d *Debugger) Inspect(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) {
+func (d *Debugger) Inspect(tr TraceData) { //uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) {
 	var reqHeaders, resHeaders []string
-	if req != nil {
-		for k := range req.Header {
-			reqHeaders = append(reqHeaders, k+"="+req.Header.Get(k))
-		}
+	for k := range tr.ReqHeader {
+		reqHeaders = append(reqHeaders, k+"="+tr.ReqHeader.Get(k))
 	}
-	if res != nil {
-		for k := range res.Header {
-			resHeaders = append(resHeaders, k+"="+res.Header.Get(k))
-		}
+	for k := range tr.ResHeader {
+		resHeaders = append(resHeaders, k+"="+tr.ResHeader.Get(k))
 	}
-	var status string
-	if res != nil {
-		status = res.Status
-	}
-	fmt.Printf("[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n", req.Method, uri, status, cost, strings.Join(reqHeaders, "; "), string(payload), strings.Join(resHeaders, "; "), string(body))
+	fmt.Printf(
+		"[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n",
+		tr.Method,
+		tr.URL,
+		tr.Status,
+		tr.Cost,
+		strings.Join(reqHeaders, "; "),
+		string(tr.ReqPayload),
+		strings.Join(resHeaders, "; "),
+		string(tr.ResData),
+	)
 }
 
 func SimpleKVToQs(obj interface{}) url.Values {

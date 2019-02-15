@@ -3,12 +3,13 @@ package web
 import (
 	"errors"
 	"fmt"
-	"github.com/qjpcpu/common/json"
-	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"time"
+
+	"github.com/qjpcpu/common/json"
+	"github.com/qjpcpu/common/web/httpclient"
 )
 
 // NewClient new client
