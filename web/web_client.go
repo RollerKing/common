@@ -3,13 +3,13 @@ package web
 import (
 	"errors"
 	"fmt"
+	"github.com/qjpcpu/common/json"
+	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"reflect"
 	"time"
-
-	"github.com/qjpcpu/common/json"
-	"github.com/qjpcpu/common/web/httpclient"
 )
 
 // NewClient new client
@@ -39,6 +39,9 @@ func (rr *ResponseResolver) Resolve(data []byte, err error) error {
 	}
 	if rr.fn == nil || rr.resPtr == nil {
 		return errors.New("bad http response resolver")
+	}
+	if reflect.ValueOf(rr.resPtr).Kind() != reflect.Ptr {
+		return errors.New("res obj must be pointer")
 	}
 	return rr.fn(data, rr.resPtr)
 }
