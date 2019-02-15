@@ -46,6 +46,15 @@ func MustMarshal(v interface{}) []byte {
 	return data
 }
 
+// UnsafeMarshal marshal without error
+func UnsafeMarshal(v interface{}) []byte {
+	data, err := Marshal(v)
+	if err != nil {
+		return []byte("")
+	}
+	return data
+}
+
 // MustUnmarshal must unmarshal successful
 func MustUnmarshal(data []byte, v interface{}) {
 	if err := Unmarshal(data, v); err != nil {
