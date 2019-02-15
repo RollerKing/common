@@ -23,7 +23,7 @@ func NewClient() *JSONClient {
 		Client: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		IHTTPInspector: &httpclient.Debugger{},
+		IHTTPInspector: httpclient.NewDebugger(),
 	}
 	jc.SetDebug(false)
 	return jc

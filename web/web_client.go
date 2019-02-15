@@ -16,7 +16,7 @@ import (
 func NewClient() *HttpClient {
 	return &HttpClient{
 		Client:         &http.Client{Timeout: 5 * time.Second},
-		IHTTPInspector: &httpclient.Debugger{},
+		IHTTPInspector: httpclient.NewDebugger(),
 	}
 }
 

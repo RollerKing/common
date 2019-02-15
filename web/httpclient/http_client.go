@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"strings"
 	"time"
@@ -156,6 +157,7 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 // Debugger debugger
 type Debugger struct {
 	DebugOn bool
+	writer  io.Writer
 }
 
 // TraceData data
@@ -192,6 +194,20 @@ func buildTraceData(uri string, req *http.Request, res *http.Response, payload, 
 	return tr
 }
 
+// NewDebugger new simple debugger
+func NewDebugger() *Debugger {
+	return &Debugger{
+		DebugOn: false,
+		writer:  os.Stderr,
+	}
+}
+
+// SetWriter set output
+func (d *Debugger) SetWriter(w io.Writer) *Debugger {
+	d.writer = w
+	return d
+}
+
 // IsDebugOn is debug on
 func (d *Debugger) IsDebugOn() bool {
 	return d.DebugOn
@@ -204,6 +220,10 @@ func (d *Debugger) SetDebug(set bool) {
 
 // Inspect inspect http entity
 func (d *Debugger) Inspect(tr TraceData) {
+	writer := d.writer
+	if writer == nil {
+		return
+	}
 	var reqHeaders, resHeaders []string
 	for k := range tr.ReqHeader {
 		reqHeaders = append(reqHeaders, k+"="+tr.ReqHeader.Get(k))
@@ -211,7 +231,8 @@ func (d *Debugger) Inspect(tr TraceData) {
 	for k := range tr.ResHeader {
 		resHeaders = append(resHeaders, k+"="+tr.ResHeader.Get(k))
 	}
-	fmt.Printf(
+	fmt.Fprintf(
+		writer,
 		"[%s] %s %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n",
 		tr.Method,
 		tr.URL,
