@@ -203,7 +203,7 @@ func (d *Debugger) SetDebug(set bool) {
 }
 
 // Inspect inspect http entity
-func (d *Debugger) Inspect(tr TraceData) { //uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) {
+func (d *Debugger) Inspect(tr TraceData) {
 	var reqHeaders, resHeaders []string
 	for k := range tr.ReqHeader {
 		reqHeaders = append(reqHeaders, k+"="+tr.ReqHeader.Get(k))
