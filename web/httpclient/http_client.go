@@ -123,7 +123,7 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	if c.IsDebugOn() {
 		tm := time.Now()
 		defer func() {
-			trdata := buildTraceData(urlstr, req, rs, bodyData, res, time.Since(tm))
+			trdata := buildTraceData(urlstr, req, rs, bodyData, res, tm)
 			c.Inspect(trdata)
 		}()
 	}
@@ -164,6 +164,7 @@ type TraceData struct {
 	URL        string
 	ReqHeader  http.Header
 	ReqPayload []byte
+	ReqAt      time.Time
 	Cost       time.Duration
 	StatusCode int
 	Status     string
@@ -171,10 +172,11 @@ type TraceData struct {
 	ResData    []byte
 }
 
-func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, cost time.Duration) TraceData {
+func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, reqAt time.Time) TraceData {
 	tr := TraceData{
 		URL:        uri,
-		Cost:       cost,
+		ReqAt:      reqAt,
+		Cost:       time.Since(reqAt),
 		ReqPayload: payload,
 		ResData:    body,
 	}
@@ -210,10 +212,11 @@ func (d *Debugger) Inspect(tr TraceData) { //uri string, req *http.Request, res 
 		resHeaders = append(resHeaders, k+"="+tr.ResHeader.Get(k))
 	}
 	fmt.Printf(
-		"[%s] %s %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n",
+		"[%s] %s %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n",
 		tr.Method,
 		tr.URL,
 		tr.Status,
+		tr.ReqAt.Format("2006-01-02 15:04:05"),
 		tr.Cost,
 		strings.Join(reqHeaders, "; "),
 		string(tr.ReqPayload),
