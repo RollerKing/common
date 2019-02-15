@@ -53,7 +53,10 @@ func (js *JSONClient) Do(req *http.Request) (*http.Response, error) {
 
 // GetWithParams get url by encode params as query string
 func (jc *JSONClient) GetWithParams(urlstr string, params interface{}, resObj interface{}, optionalHeader ...map[string]string) error {
-	u, _ := url.Parse(urlstr)
+	u, err := url.Parse(urlstr)
+	if err != nil {
+		return err
+	}
 	if params != nil {
 		ps := httpclient.SimpleKVToQs(params)
 		qs := u.Query()
