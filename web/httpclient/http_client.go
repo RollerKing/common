@@ -231,18 +231,26 @@ func (d *Debugger) Inspect(tr TraceData) {
 	for k := range tr.ResHeader {
 		resHeaders = append(resHeaders, k+"="+tr.ResHeader.Get(k))
 	}
+	reqBody := string(tr.ReqPayload)
+	resBody := string(tr.ResData)
+	if reqBody != "" {
+		reqBody = "\n" + reqBody
+	}
+	if resBody != "" {
+		resBody = "\n" + resBody
+	}
 	fmt.Fprintf(
 		writer,
-		"[%s] %s %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:\n%s\n[res headers]: %s\n[response]:\n%s\n",
+		"[%s] %s %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:%s\n[res headers]: %s\n[response]:%s\n",
 		tr.Method,
 		tr.URL,
 		tr.Status,
 		tr.ReqAt.Format("2006-01-02 15:04:05"),
 		tr.Cost,
 		strings.Join(reqHeaders, "; "),
-		string(tr.ReqPayload),
+		reqBody,
 		strings.Join(resHeaders, "; "),
-		string(tr.ResData),
+		resBody,
 	)
 }
 
