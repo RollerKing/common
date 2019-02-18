@@ -108,7 +108,7 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeaders 
 	hder["Content-Type"] = "application/x-www-form-urlencoded"
 	for _, extraHeader := range extraHeaders {
 		for k, v := range extraHeader {
-			hder[k] = v
+			hder[textproto.CanonicalMIMEHeaderKey(k)] = v
 		}
 	}
 	values := url.Values{}
@@ -124,7 +124,7 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...h
 	hder["Content-Type"] = "application/json"
 	for _, extraHeader := range extraHeaders {
 		for k, v := range extraHeader {
-			hder[k] = v
+			hder[textproto.CanonicalMIMEHeaderKey(k)] = v
 		}
 	}
 	var payload []byte
