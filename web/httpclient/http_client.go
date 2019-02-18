@@ -183,6 +183,9 @@ func buildTraceData(uri string, req *http.Request, res *http.Response, payload, 
 		ResData:    body,
 	}
 	if req != nil {
+		if req.URL != nil {
+			tr.URL = req.URL.String()
+		}
 		tr.Method = req.Method
 		tr.ReqHeader = req.Header
 	}

@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"github.com/qjpcpu/common/web/httpclient"
+	"net/http"
 	"testing"
 )
 
@@ -36,6 +37,9 @@ func TestClient(t *testing.T) {
 func TestResolve(t *testing.T) {
 	c := NewClient()
 	c.SetDebug(true)
+	c.SetBeforeFunc(func(req *http.Request) {
+		req.Header.Set("Before", "val")
+	})
 	addr := "http://api.ipify.org/?format=json"
 	res := struct {
 		IP string `json:"ip"`

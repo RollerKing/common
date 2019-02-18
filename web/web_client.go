@@ -21,11 +21,15 @@ func NewClient() *HttpClient {
 	}
 }
 
+// BeforeRequest modify req before request
+type BeforeRequest func(*http.Request)
+
 // HttpClient client
 type HttpClient struct {
 	Client *http.Client
 	httpclient.IHTTPInspector
 	globalHeader httpclient.Header
+	beforeFunc   BeforeRequest
 }
 
 // ResponseResolver res resolver
@@ -48,8 +52,17 @@ func (rr *ResponseResolver) Resolve(data []byte, err error) error {
 	return rr.fn(data, rr.resPtr)
 }
 
+// SetBeforeFunc set before function
+func (c *HttpClient) SetBeforeFunc(f BeforeRequest) *HttpClient {
+	c.beforeFunc = f
+	return c
+}
+
 // Do do not invoke
 func (client *HttpClient) Do(req *http.Request) (*http.Response, error) {
+	if f := client.beforeFunc; f != nil {
+		f(req)
+	}
 	return client.Client.Do(req)
 }
 
