@@ -247,9 +247,9 @@ func (d *Debugger) Inspect(tr TraceData) {
 		tr.Status,
 		tr.ReqAt.Format("2006-01-02 15:04:05"),
 		tr.Cost,
-		strings.Join(reqHeaders, "; "),
+		strings.Join(reqHeaders, " "),
 		reqBody,
-		strings.Join(resHeaders, "; "),
+		strings.Join(resHeaders, " "),
 		resBody,
 	)
 }
