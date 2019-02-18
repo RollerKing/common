@@ -8,6 +8,7 @@ import (
 
 func TestClient(t *testing.T) {
 	c := NewClient()
+	c.SetGlobalHeader("global-hder", "global_val")
 	c.EnableCookie().SetDebug(true)
 	res, err := c.Get("http://httpbin.org/get")
 	if err != nil {
@@ -25,7 +26,7 @@ func TestClient(t *testing.T) {
 	res, err = c.PostJSON("http://httpbin.org/post", map[string]interface{}{
 		"a": "text",
 		"b": 34,
-	}, nil)
+	}, httpclient.Header{"Global-hder": "override"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,6 +35,7 @@ func TestClient(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	c := NewClient()
+	c.SetDebug(true)
 	addr := "http://api.ipify.org/?format=json"
 	res := struct {
 		IP string `json:"ip"`

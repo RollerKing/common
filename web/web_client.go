@@ -7,6 +7,7 @@ import (
 	"github.com/qjpcpu/common/web/httpclient"
 	"net/http"
 	"net/http/cookiejar"
+	"net/textproto"
 	"net/url"
 	"reflect"
 	"time"
@@ -24,6 +25,7 @@ func NewClient() *HttpClient {
 type HttpClient struct {
 	Client *http.Client
 	httpclient.IHTTPInspector
+	globalHeader httpclient.Header
 }
 
 // ResponseResolver res resolver
@@ -66,23 +68,38 @@ func (client *HttpClient) SetTimeout(tm time.Duration) *HttpClient {
 	return client
 }
 
+// SetGlobalHeader set global headers, should be set before any request happens(cas unsafe map)
+func (client *HttpClient) SetGlobalHeader(name, val string) *HttpClient {
+	if name == "" {
+		return client
+	}
+	name = textproto.CanonicalMIMEHeaderKey(name)
+	if client.globalHeader == nil {
+		client.globalHeader = make(httpclient.Header)
+	}
+	if val == "" {
+		if _, ok := client.globalHeader[name]; ok {
+			delete(client.globalHeader, name)
+		}
+		return client
+	}
+	client.globalHeader[name] = val
+	return client
+}
+
 // Get get url
 func (c *HttpClient) Get(uri string) (res []byte, err error) {
-	return httpclient.Get(c, uri, nil)
+	return httpclient.Get(c, uri, c.genHeaders())
 }
 
 // GetWithParams with qs
 func (c *HttpClient) GetWithParams(uri string, params interface{}) (res []byte, err error) {
-	return httpclient.GetWithParams(c, uri, params, nil)
+	return httpclient.GetWithParams(c, uri, params, c.genHeaders())
 }
 
 // Post data
 func (c *HttpClient) Post(urlstr string, data []byte, extraHeaders ...httpclient.Header) (res []byte, err error) {
-	extraHeader := make(httpclient.Header)
-	if len(extraHeaders) > 0 {
-		extraHeader = extraHeaders[0]
-	}
-	return httpclient.HttpRequest(c, "POST", urlstr, extraHeader, data)
+	return httpclient.HttpRequest(c, "POST", urlstr, c.genHeaders(extraHeaders...), data)
 }
 
 // PostForm post form
@@ -91,16 +108,14 @@ func (c *HttpClient) PostForm(urlstr string, data httpclient.Form, extraHeaders 
 	hder["Content-Type"] = "application/x-www-form-urlencoded"
 	for _, extraHeader := range extraHeaders {
 		for k, v := range extraHeader {
-			if v != "" {
-				hder[k] = v
-			}
+			hder[k] = v
 		}
 	}
 	values := url.Values{}
 	for k, v := range data {
 		values.Set(k, fmt.Sprint(v))
 	}
-	return httpclient.HttpRequest(c, "POST", urlstr, hder, []byte(values.Encode()))
+	return httpclient.HttpRequest(c, "POST", urlstr, c.genHeaders(hder), []byte(values.Encode()))
 }
 
 // PostJSON post json
@@ -109,9 +124,7 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...h
 	hder["Content-Type"] = "application/json"
 	for _, extraHeader := range extraHeaders {
 		for k, v := range extraHeader {
-			if v != "" {
-				hder[k] = v
-			}
+			hder[k] = v
 		}
 	}
 	var payload []byte
@@ -128,7 +141,33 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...h
 			return nil, err
 		}
 	}
-	return httpclient.HttpRequest(c, "POST", urlstr, hder, payload)
+	return httpclient.HttpRequest(c, "POST", urlstr, c.genHeaders(hder), payload)
+}
+
+func (c *HttpClient) genHeaders(extraHeaders ...httpclient.Header) httpclient.Header {
+	if len(c.globalHeader) == 0 && len(extraHeaders) == 0 {
+		return nil
+	}
+	hder := make(httpclient.Header)
+	for key, val := range c.globalHeader {
+		key = textproto.CanonicalMIMEHeaderKey(key)
+		if val != "" {
+			hder[key] = val
+		}
+	}
+	for _, sub := range extraHeaders {
+		for key, val := range sub {
+			key = textproto.CanonicalMIMEHeaderKey(key)
+			if val == "" {
+				if _, ok := hder[key]; ok {
+					delete(hder, key)
+				}
+			} else {
+				hder[key] = val
+			}
+		}
+	}
+	return hder
 }
 
 // GetResolver get response resolver
