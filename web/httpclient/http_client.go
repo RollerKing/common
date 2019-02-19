@@ -154,8 +154,8 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	return res, nil
 }
 
-// HttpUpload upload file
-func HttpUpload(c IHTTPClient, urlstr string, headers Header, fileReader io.Reader) (res []byte, err error) {
+// HttpStream send http stream
+func HttpStream(c IHTTPClient, method, urlstr string, headers Header, bodyReader io.Reader) (res []byte, err error) {
 	var req *http.Request
 	var rs *http.Response
 	if c.IsDebugOn() {
@@ -168,15 +168,13 @@ func HttpUpload(c IHTTPClient, urlstr string, headers Header, fileReader io.Read
 	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
 		urlstr = "http://" + urlstr
 	}
-	req, err = http.NewRequest("POST", urlstr, fileReader)
+	method = strings.ToUpper(method)
+	req, err = http.NewRequest(method, urlstr, bodyReader)
 	if err != nil {
 		return res, err
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
-	}
-	if req.Header.Get("Content-Type") == "" {
-		req.Header.Set("Content-Type", "binary/octet-stream")
 	}
 	rs, err = c.Do(req)
 	if err != nil {
