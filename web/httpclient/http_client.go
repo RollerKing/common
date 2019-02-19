@@ -132,7 +132,7 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
 		urlstr = "http://" + urlstr
 	}
-	if bodyData != nil && len(bodyData) > 0 {
+	if len(bodyData) > 0 {
 		bodyReader = bytes.NewBuffer(bodyData)
 	}
 	req, err = http.NewRequest(method, urlstr, bodyReader)
@@ -141,6 +141,42 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
+	}
+	rs, err = c.Do(req)
+	if err != nil {
+		return res, err
+	}
+	defer rs.Body.Close()
+	res, err = ioutil.ReadAll(rs.Body)
+	if err != nil {
+		return res, err
+	}
+	return res, nil
+}
+
+// HttpUpload upload file
+func HttpUpload(c IHTTPClient, urlstr string, headers Header, fileReader io.Reader) (res []byte, err error) {
+	var req *http.Request
+	var rs *http.Response
+	if c.IsDebugOn() {
+		tm := time.Now()
+		defer func() {
+			trdata := buildTraceData(urlstr, req, rs, nil, res, tm)
+			c.Inspect(trdata)
+		}()
+	}
+	if !strings.HasPrefix(urlstr, "http://") && !strings.HasPrefix(urlstr, "https://") {
+		urlstr = "http://" + urlstr
+	}
+	req, err = http.NewRequest("POST", urlstr, fileReader)
+	if err != nil {
+		return res, err
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	if req.Header.Get("Content-Type") == "" {
+		req.Header.Set("Content-Type", "binary/octet-stream")
 	}
 	rs, err = c.Do(req)
 	if err != nil {
