@@ -85,6 +85,15 @@ func ContainString(list []string, target string) bool {
 	return false
 }
 
+// 复制数组
+func CopyStrings(list []string) []string {
+	list2 := make([]string, len(list))
+	for i, str := range list {
+		list2[i] = str
+	}
+	return list2
+}
+
 // 移除某个字符串
 func RemoveString(list []string, str string) []string {
 	offset := 0
