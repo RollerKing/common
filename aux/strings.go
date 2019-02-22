@@ -40,7 +40,7 @@ func SubstractStrings(list1 []string, list2 []string) []string {
 }
 
 // 求并集
-func MergeStrings(lists ...[]string) []string {
+func UnionStrings(lists ...[]string) []string {
 	for i := range lists {
 		sort.Strings(lists[i])
 	}

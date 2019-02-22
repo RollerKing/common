@@ -15,7 +15,7 @@ func ContainInt(nums []int, num int) bool {
 }
 
 // 求并集
-func MergeInts(lists ...[]int) []int {
+func UnionInts(lists ...[]int) []int {
 	for i := range lists {
 		sort.Ints(lists[i])
 	}
