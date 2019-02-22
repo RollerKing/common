@@ -629,7 +629,7 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	if val.Type().Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	tagLabel := `json`
+	var tagLabel string
 	if len(tagName) > 0 && tagName[0] != "" {
 		tagLabel = tagName[0]
 	}

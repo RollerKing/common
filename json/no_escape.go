@@ -27,7 +27,12 @@ func Marshal(v interface{}) ([]byte, error) {
 	if err := writer.Flush(); err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
+	data := buf.Bytes()
+	// drop extra \n byte
+	if size := len(data); size > 0 && data[size-1] == byte(10) {
+		data = data[:size-1]
+	}
+	return data, nil
 }
 
 // Unmarshal same as sys unmarshal
@@ -53,6 +58,15 @@ func UnsafeMarshal(v interface{}) []byte {
 		return []byte("")
 	}
 	return data
+}
+
+// UnsafeMarshalString marshal without error
+func UnsafeMarshalString(v interface{}) string {
+	data, err := Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // MustUnmarshal must unmarshal successful
