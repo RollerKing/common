@@ -64,15 +64,19 @@ func EqualStrings(list1, list2 []string) bool {
 
 // 去重
 func UniqStrings(list []string) []string {
+	if len(list) <= 1 {
+		return list
+	}
 	memo := make(map[string]int)
 	for _, e := range list {
 		memo[e] = 1
 	}
-	var arr []string
+	i := 0
 	for str := range memo {
-		arr = append(arr, str)
+		list[i] = str
+		i++
 	}
-	return arr
+	return list[:i]
 }
 
 // 是否包含
@@ -88,9 +92,7 @@ func ContainString(list []string, target string) bool {
 // 复制数组
 func CopyStrings(list []string) []string {
 	list2 := make([]string, len(list))
-	for i, str := range list {
-		list2[i] = str
-	}
+	copy(list2, list)
 	return list2
 }
 
