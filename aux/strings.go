@@ -316,3 +316,8 @@ func UnderlineLowercase(name string) string {
 	}
 	return string(res)
 }
+
+// LowercaseWithSpace 将大写单词转化成小写以空格分割
+func LowercaseWithSpace(name string) string {
+	return strings.Replace(UnderlineLowercase(name), "_", " ", -1)
+}
