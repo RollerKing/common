@@ -36,6 +36,24 @@ func TernaryFloat64(condition bool, trueVal, falseVal float64) float64 {
 	}
 }
 
+// TernaryMapString condition ? trueVal : falseVal
+func TernaryMapString(condition bool, trueVal, falseVal map[string]string) map[string]string {
+	if condition {
+		return trueVal
+	} else {
+		return falseVal
+	}
+}
+
+// TernaryMap condition ? trueVal : falseVal
+func TernaryMap(condition bool, trueVal, falseVal map[string]interface{}) map[string]interface{} {
+	if condition {
+		return trueVal
+	} else {
+		return falseVal
+	}
+}
+
 // TernaryInterface condition ? trueVal : falseVal
 func TernaryInterface(condition bool, trueVal, falseVal interface{}) interface{} {
 	if condition {
