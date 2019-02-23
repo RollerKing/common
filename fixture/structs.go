@@ -119,6 +119,8 @@ func initializeVal(t reflect.Type, v reflect.Value) {
 		v.SetInt(rand.Int63n(1000))
 	case reflect.Int8:
 		v.SetInt(rand.Int63n(8))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		v.SetUint(rand.Uint64() % 100)
 	case reflect.Struct:
 		if t.String() == "time.Time" {
 			v.Set(reflect.ValueOf(time.Now()))
@@ -139,5 +141,7 @@ func initializeVal(t reflect.Type, v reflect.Value) {
 		v.Set(array)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
+	case reflect.Interface:
+		v.Set(reflect.ValueOf("DYNAMIC"))
 	}
 }

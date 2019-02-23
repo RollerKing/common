@@ -629,22 +629,26 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	if val.Type().Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	var tagLabel string
-	if len(tagName) > 0 && tagName[0] != "" {
-		tagLabel = tagName[0]
+	getKeyFunc := func(f reflect.StructField) (name string, omitempty bool) {
+		for _, tag := range tagName {
+			if tag != "" {
+				if arr := strings.SplitN(f.Tag.Get(tag), ",", 2); len(arr) > 0 && arr[0] != "" {
+					name = arr[0]
+					omitempty = strings.Contains(f.Tag.Get(tag), ",omitempty")
+					return
+				}
+			}
+		}
+		return f.Name, false
 	}
 	for i := 0; i < val.Type().NumField(); i++ {
-		tag := val.Type().Field(i).Tag.Get(tagLabel)
-		name := val.Type().Field(i).Name
-		if arr := strings.SplitN(tag, ",", 2); len(arr) > 0 && arr[0] != "" {
-			name = arr[0]
-		}
+		name, omitempty := getKeyFunc(val.Type().Field(i))
 		field := val.Field(i)
 		kind := field.Kind()
 		isPtr := field.Type().Kind() == reflect.Ptr
 		if isPtr {
 			if field.IsNil() {
-				if !strings.Contains(tag, ",omitempty") {
+				if !omitempty {
 					res[name] = nil
 				}
 				continue
@@ -658,7 +662,7 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 			for j := 0; j < field.Len(); j++ {
 				iv := field.Index(j)
 				if iv.Type().Kind() == reflect.Ptr {
-					iv = field.Elem()
+					iv = iv.Elem()
 				}
 				if iv.Kind() == reflect.Struct && iv.Type().String() != "time.Time" {
 					list[j] = Struct2Map(iv.Interface())
