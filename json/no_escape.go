@@ -69,6 +69,17 @@ func UnsafeMarshalString(v interface{}) string {
 	return string(data)
 }
 
+// UnsafeMarshalIndent marshal without error
+func UnsafeMarshalIndent(v interface{}) []byte {
+	data, err := Marshal(v)
+	if err != nil {
+		return []byte("")
+	}
+	var out bytes.Buffer
+	sysjson.Indent(&out, data, "", "\t")
+	return out.Bytes()
+}
+
 // MustUnmarshal must unmarshal successful
 func MustUnmarshal(data []byte, v interface{}) {
 	if err := Unmarshal(data, v); err != nil {
