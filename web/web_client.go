@@ -17,8 +17,9 @@ import (
 // NewClient new client
 func NewClient() *HttpClient {
 	return &HttpClient{
-		Client:    &http.Client{Timeout: 5 * time.Second},
-		inspector: httpclient.NewDebugger(),
+		Client:     &http.Client{Timeout: 5 * time.Second},
+		inspector:  httpclient.NewDebugger(),
+		omit4xx5xx: false,
 	}
 }
 
@@ -31,30 +32,41 @@ type HttpClient struct {
 	inspector    *httpclient.Debugger
 	globalHeader httpclient.Header
 	beforeFunc   BeforeRequest
+	omit4xx5xx   bool
 }
 
 // ResponseResolver res resolver
 type ResponseResolver struct {
-	fn     httpclient.UnmarshalFunc
-	resPtr interface{}
+	fn         httpclient.UnmarshalFunc
+	resPtr     interface{}
+	omit4xx5xx bool
 }
 
 // Resolve response
 func (rr *ResponseResolver) Resolve(data []byte, err error) error {
-	if err != nil {
-		// try to resolve http error content
-		if he, ok := err.(*httpclient.HTTPError); ok && rr.fn != nil && rr.resPtr != nil && len(he.Response) > 0 {
-			rr.fn(he.Response, rr.resPtr)
-		}
-		return err
-	}
 	if rr.fn == nil || rr.resPtr == nil {
 		return errors.New("bad http response resolver")
 	}
 	if reflect.ValueOf(rr.resPtr).Kind() != reflect.Ptr {
 		return errors.New("res obj must be pointer")
 	}
+	if err != nil {
+		if rr.omit4xx5xx {
+			// try to resolve http error content
+			if he, ok := err.(*httpclient.HTTPError); ok {
+				return rr.fn(he.Response, rr.resPtr)
+			}
+		}
+		return err
+	}
+
 	return rr.fn(data, rr.resPtr)
+}
+
+// OmitHTTP4xx5xx omit http 4xx,5xx error
+func (c *HttpClient) OmitHTTP4xx5xx(omit bool) *HttpClient {
+	c.omit4xx5xx = omit
+	return c
 }
 
 // SetBeforeFunc set before function
@@ -218,8 +230,9 @@ func (c *HttpClient) genHeaders(extraHeaders ...httpclient.Header) httpclient.He
 // GetResolver get response resolver
 func (c *HttpClient) GetResolver(resPtr interface{}, fn httpclient.UnmarshalFunc) *ResponseResolver {
 	return &ResponseResolver{
-		resPtr: resPtr,
-		fn:     fn,
+		resPtr:     resPtr,
+		fn:         fn,
+		omit4xx5xx: c.omit4xx5xx,
 	}
 }
 
