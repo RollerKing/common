@@ -49,7 +49,10 @@ func Get(c IHTTPClient, uri string, extraHeader Header) (res []byte, err error) 
 
 // GetWithParams get with qs object(map or struct)
 func GetWithParams(c IHTTPClient, uri string, params interface{}, extraHeader Header) ([]byte, error) {
-	u, _ := url.Parse(uri)
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
 	if params != nil {
 		ps := SimpleKVToQs(params)
 		qs := u.Query()
