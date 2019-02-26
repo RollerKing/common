@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+// HTTPError http error
+type HTTPError struct {
+	Code     int
+	Status   string
+	Response []byte
+}
+
+// Error http error content
+func (he HTTPError) Error() string {
+	return fmt.Sprintf("%s\n%s", he.Status, he.Response)
+}
+
 // UnmarshalFunc data bytes to object pointer
 type UnmarshalFunc func([]byte, interface{}) error
 
@@ -153,6 +165,13 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 	if err != nil {
 		return res, err
 	}
+	if rs.StatusCode >= http.StatusBadRequest {
+		return res, HTTPError{
+			Code:     rs.StatusCode,
+			Status:   rs.Status,
+			Response: res,
+		}
+	}
 	return res, nil
 }
 
@@ -186,6 +205,13 @@ func HttpStream(c IHTTPClient, method, urlstr string, headers Header, bodyReader
 	res, err = ioutil.ReadAll(rs.Body)
 	if err != nil {
 		return res, err
+	}
+	if rs.StatusCode >= http.StatusBadRequest {
+		return res, HTTPError{
+			Code:     rs.StatusCode,
+			Status:   rs.Status,
+			Response: res,
+		}
 	}
 	return res, nil
 }
