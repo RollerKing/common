@@ -157,6 +157,11 @@ func (c *HttpClient) PostJSON(urlstr string, data interface{}, extraHeaders ...h
 	return httpclient.HttpRequest(c, "POST", urlstr, c.genHeaders(hder), payload)
 }
 
+// HTTP any request
+func (c *HttpClient) HTTP(method, urlstr string, data []byte, extraHeaders ...httpclient.Header) (res []byte, err error) {
+	return httpclient.HttpRequest(c, method, urlstr, c.genHeaders(extraHeaders...), data)
+}
+
 func (c *HttpClient) genHeaders(extraHeaders ...httpclient.Header) httpclient.Header {
 	if len(c.globalHeader) == 0 && len(extraHeaders) == 0 {
 		return nil
