@@ -23,7 +23,7 @@ type HTTPError struct {
 }
 
 // Error http error content
-func (he HTTPError) Error() string {
+func (he *HTTPError) Error() string {
 	return fmt.Sprintf("%s\n%s", he.Status, he.Response)
 }
 
@@ -166,7 +166,7 @@ func HttpRequest(c IHTTPClient, method, urlstr string, headers Header, bodyData 
 		return res, err
 	}
 	if rs.StatusCode >= http.StatusBadRequest {
-		return res, HTTPError{
+		return res, &HTTPError{
 			Code:     rs.StatusCode,
 			Status:   rs.Status,
 			Response: res,
@@ -207,7 +207,7 @@ func HttpStream(c IHTTPClient, method, urlstr string, headers Header, bodyReader
 		return res, err
 	}
 	if rs.StatusCode >= http.StatusBadRequest {
-		return res, HTTPError{
+		return res, &HTTPError{
 			Code:     rs.StatusCode,
 			Status:   rs.Status,
 			Response: res,

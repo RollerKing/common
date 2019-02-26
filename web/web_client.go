@@ -42,6 +42,10 @@ type ResponseResolver struct {
 // Resolve response
 func (rr *ResponseResolver) Resolve(data []byte, err error) error {
 	if err != nil {
+		// try to resolve http error content
+		if he, ok := err.(*httpclient.HTTPError); ok && rr.fn != nil && rr.resPtr != nil && len(he.Response) > 0 {
+			rr.fn(he.Response, rr.resPtr)
+		}
 		return err
 	}
 	if rr.fn == nil || rr.resPtr == nil {
