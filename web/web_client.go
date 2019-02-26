@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/qjpcpu/common/json"
 	"github.com/qjpcpu/common/web/httpclient"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/textproto"
@@ -16,8 +17,8 @@ import (
 // NewClient new client
 func NewClient() *HttpClient {
 	return &HttpClient{
-		Client:         &http.Client{Timeout: 5 * time.Second},
-		IHTTPInspector: httpclient.NewDebugger(),
+		Client:    &http.Client{Timeout: 5 * time.Second},
+		inspector: httpclient.NewDebugger(),
 	}
 }
 
@@ -26,8 +27,8 @@ type BeforeRequest func(*http.Request)
 
 // HttpClient client
 type HttpClient struct {
-	Client *http.Client
-	httpclient.IHTTPInspector
+	Client       *http.Client
+	inspector    *httpclient.Debugger
 	globalHeader httpclient.Header
 	beforeFunc   BeforeRequest
 }
@@ -98,6 +99,28 @@ func (client *HttpClient) SetGlobalHeader(name, val string) *HttpClient {
 	}
 	client.globalHeader[name] = val
 	return client
+}
+
+// SetDebug set debug
+func (c *HttpClient) SetDebug(on bool) *HttpClient {
+	c.inspector.SetDebug(on)
+	return c
+}
+
+// SetDebugWriter set debug writer
+func (c *HttpClient) SetDebugWriter(w io.Writer) *HttpClient {
+	c.inspector.SetWriter(w)
+	return c
+}
+
+// IsDebugOn debug onoff
+func (c *HttpClient) IsDebugOn() bool {
+	return c.inspector.IsDebugOn()
+}
+
+// Inspect data
+func (c *HttpClient) Inspect(data httpclient.TraceData) {
+	c.inspector.Inspect(data)
 }
 
 // Get get url

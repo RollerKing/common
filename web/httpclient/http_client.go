@@ -21,7 +21,6 @@ type UnmarshalFunc func([]byte, interface{}) error
 // IHTTPInspector debugger
 type IHTTPInspector interface {
 	IsDebugOn() bool
-	SetDebug(bool)
 	Inspect(TraceData)
 }
 
