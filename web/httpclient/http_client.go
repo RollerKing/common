@@ -276,7 +276,7 @@ func (d *Debugger) Inspect(tr TraceData) {
 		reqBody = "\n" + reqBody
 	}
 	if resBody != "" {
-		resBody = "\n" + resBody
+		resBody = "\n" + resBody + "\n"
 	}
 	fmt.Fprintf(
 		writer,
