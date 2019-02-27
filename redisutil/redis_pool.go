@@ -14,13 +14,13 @@ var (
 
 // Options redis options
 type Options struct {
-	ConnectTimeout int  `json:"connect_timeout" toml:"connect_timeout"`
-	ReadTimeout    int  `json:"read_timeout" toml:"read_timeout"`
-	WriteTimeout   int  `json:"write_timeout" toml:"write_timeout"`
-	MaxActive      int  `json:"max_active" toml:"max_active"`
-	MaxIdle        int  `json:"max_idle" toml:"max_idle"`
-	IdleTimeout    int  `json:"idle_timeout" toml:"idle_timeout"`
-	Wait           bool `json:"wait" toml:"wait"`
+	ConnectTimeout int  `json:"connect_timeout" toml:"connect_timeout" example:"2"`
+	ReadTimeout    int  `json:"read_timeout" toml:"read_timeout" example:"2"`
+	WriteTimeout   int  `json:"write_timeout" toml:"write_timeout" example:"2"`
+	MaxActive      int  `json:"max_active" toml:"max_active" example:"200"`
+	MaxIdle        int  `json:"max_idle" toml:"max_idle" example:"200"`
+	IdleTimeout    int  `json:"idle_timeout" toml:"idle_timeout" example:"2"`
+	Wait           bool `json:"wait" toml:"wait" example:"false"`
 }
 
 // OptFunc redis option function
@@ -28,17 +28,17 @@ type OptFunc func(*Options)
 
 // RedisInfo redis config
 type RedisInfo struct {
-	Address  string `json:"address" toml:"address"`
-	DB       string `json:"db,omitempty" toml:"db,omitempty"`
-	Password string `json:"password,omitempty" toml:"password,omitempty"`
+	Address  string `json:"address" toml:"address" example:"127.0.0.1:6379"`
+	DB       string `json:"db,omitempty" toml:"db,omitempty" example:""`
+	Password string `json:"password,omitempty" toml:"password,omitempty" example:""`
 	Options
 }
 
 // RedisClusterInfo redis cluster config
 type RedisClusterInfo struct {
-	StartupNodes []string `json:"startup_nodes" toml:"startup_nodes"`
-	DB           string   `json:"db" toml:"db"`
-	Password     string   `json:"password,omitempty" toml:"password,omitempty"`
+	StartupNodes []string `json:"startup_nodes" toml:"startup_nodes" example:"127.0.0.1:6378,127.0.0.1:6379,127.0.0.1:6380"`
+	DB           string   `json:"db" toml:"db" example:"0"`
+	Password     string   `json:"password,omitempty" toml:"password,omitempty" example:""`
 	Options
 }
 

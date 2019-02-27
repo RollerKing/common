@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -68,19 +69,58 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 	}
 }
 
-func initializeSlice(elemt reflect.Type, slicev reflect.Value) {
+func removeString(list []string, str string) []string {
+	offset := 0
+	for i, ele := range list {
+		if ele == str {
+			offset++
+		} else if offset > 0 {
+			list[i-offset] = ele
+		}
+	}
+	return list[:len(list)-offset]
+}
+
+func initializeSlice(elemt reflect.Type, slicev reflect.Value, example ...string) {
 	if elemt.Kind() == reflect.Ptr {
-		for i := 0; i < maxSliceLen; i++ {
-			ele := reflect.New(elemt.Elem())
-			initializeVal(ele.Elem().Type(), ele.Elem())
-			slicev.Index(i).Set(ele)
+		if supportExample(elemt.Elem()) && len(example) > 0 {
+			list := removeString(strings.Split(example[0], ","), "")
+			for i := 0; i < len(list); i++ {
+				ele := reflect.New(elemt.Elem())
+				initializeVal(ele.Elem().Type(), ele.Elem(), list[i])
+				slicev.Index(i).Set(ele)
+			}
+		} else {
+			for i := 0; i < maxSliceLen; i++ {
+				ele := reflect.New(elemt.Elem())
+				initializeVal(ele.Elem().Type(), ele.Elem())
+				slicev.Index(i).Set(ele)
+			}
 		}
 	} else {
-		for i := 0; i < maxSliceLen; i++ {
-			ele := reflect.New(elemt)
-			initializeVal(elemt, ele.Elem())
-			slicev.Index(i).Set(ele.Elem())
+		if supportExample(elemt) && len(example) > 0 {
+			list := removeString(strings.Split(example[0], ","), "")
+			for i := 0; i < len(list); i++ {
+				ele := reflect.New(elemt)
+				initializeVal(elemt, ele.Elem(), list[i])
+				slicev.Index(i).Set(ele.Elem())
+			}
+		} else {
+			for i := 0; i < maxSliceLen; i++ {
+				ele := reflect.New(elemt)
+				initializeVal(elemt, ele.Elem())
+				slicev.Index(i).Set(ele.Elem())
+			}
 		}
+	}
+}
+
+func supportExample(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.String, reflect.Bool, reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64:
+		return true
+	default:
+		return false
 	}
 }
 
@@ -190,7 +230,7 @@ func initializeVal(t reflect.Type, v reflect.Value, examples ...string) {
 		v.Set(hash)
 	case reflect.Slice:
 		array := reflect.MakeSlice(t, maxSliceLen, maxSliceLen)
-		initializeSlice(v.Type().Elem(), array)
+		initializeSlice(v.Type().Elem(), array, examples...)
 		v.Set(array)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
