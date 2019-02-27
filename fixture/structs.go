@@ -81,7 +81,15 @@ func removeString(list []string, str string) []string {
 	return list[:len(list)-offset]
 }
 
-func initializeSlice(elemt reflect.Type, slicev reflect.Value, example ...string) {
+func initializeSlice(t reflect.Type, elemt reflect.Type, example ...string) reflect.Value {
+	size := maxSliceLen
+	if len(example) > 0 {
+		list := removeString(strings.Split(example[0], ","), "")
+		if len(list) > 0 {
+			size = len(list)
+		}
+	}
+	slicev := reflect.MakeSlice(t, size, size)
 	if elemt.Kind() == reflect.Ptr {
 		if supportExample(elemt.Elem()) && len(example) > 0 {
 			list := removeString(strings.Split(example[0], ","), "")
@@ -91,7 +99,7 @@ func initializeSlice(elemt reflect.Type, slicev reflect.Value, example ...string
 				slicev.Index(i).Set(ele)
 			}
 		} else {
-			for i := 0; i < maxSliceLen; i++ {
+			for i := 0; i < size; i++ {
 				ele := reflect.New(elemt.Elem())
 				initializeVal(ele.Elem().Type(), ele.Elem())
 				slicev.Index(i).Set(ele)
@@ -106,13 +114,14 @@ func initializeSlice(elemt reflect.Type, slicev reflect.Value, example ...string
 				slicev.Index(i).Set(ele.Elem())
 			}
 		} else {
-			for i := 0; i < maxSliceLen; i++ {
+			for i := 0; i < size; i++ {
 				ele := reflect.New(elemt)
 				initializeVal(elemt, ele.Elem())
 				slicev.Index(i).Set(ele.Elem())
 			}
 		}
 	}
+	return slicev
 }
 
 func supportExample(t reflect.Type) bool {
@@ -229,8 +238,7 @@ func initializeVal(t reflect.Type, v reflect.Value, examples ...string) {
 		initializeMap(t.Key(), t.Elem(), hash)
 		v.Set(hash)
 	case reflect.Slice:
-		array := reflect.MakeSlice(t, maxSliceLen, maxSliceLen)
-		initializeSlice(v.Type().Elem(), array, examples...)
+		array := initializeSlice(t, v.Type().Elem(), examples...)
 		v.Set(array)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
