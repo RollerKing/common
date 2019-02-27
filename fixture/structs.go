@@ -6,7 +6,12 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"time"
+)
+
+const (
+	ExampleTag = "example"
 )
 
 // FillStruct 填充结构体,obj必须为指针
@@ -49,12 +54,16 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		ft := t.Field(i)
+		var examples []string
+		if ex, ok := ft.Tag.Lookup(ExampleTag); ok {
+			examples = []string{ex}
+		}
 		if ft.Type.Kind() == reflect.Ptr {
 			fv := reflect.New(ft.Type.Elem())
-			initializeVal(ft.Type.Elem(), fv.Elem())
+			initializeVal(ft.Type.Elem(), fv.Elem(), examples...)
 			f.Set(fv)
 		} else {
-			initializeVal(ft.Type, f)
+			initializeVal(ft.Type, f, examples...)
 		}
 	}
 }
@@ -102,25 +111,69 @@ func initializeMap(tk, tv reflect.Type, mapv reflect.Value) {
 	}
 }
 
-func initializeVal(t reflect.Type, v reflect.Value) {
+func initializeVal(t reflect.Type, v reflect.Value, examples ...string) {
 	switch t.Kind() {
 	case reflect.String:
-		v.SetString(randomString())
+		if len(examples) > 0 {
+			v.SetString(examples[0])
+		} else {
+			v.SetString(randomString())
+		}
 	case reflect.Bool:
 		b := rand.Intn(100)%2 == 0
+		if len(examples) > 0 {
+			b, _ = strconv.ParseBool(examples[0])
+		}
 		v.SetBool(b)
 	case reflect.Int:
-		v.SetInt(rand.Int63n(10000))
+		if len(examples) > 0 {
+			i, _ := strconv.ParseInt(examples[0], 10, 64)
+			v.SetInt(i)
+		} else {
+			v.SetInt(rand.Int63n(10000))
+		}
 	case reflect.Int16:
-		v.SetInt(rand.Int63n(16))
+		if len(examples) > 0 {
+			i, _ := strconv.ParseInt(examples[0], 10, 64)
+			v.SetInt(i)
+		} else {
+			v.SetInt(rand.Int63n(16))
+		}
 	case reflect.Int32:
-		v.SetInt(rand.Int63n(32))
+		if len(examples) > 0 {
+			i, _ := strconv.ParseInt(examples[0], 10, 64)
+			v.SetInt(i)
+		} else {
+			v.SetInt(rand.Int63n(32))
+		}
 	case reflect.Int64:
-		v.SetInt(rand.Int63n(1000))
+		if len(examples) > 0 {
+			i, _ := strconv.ParseInt(examples[0], 10, 64)
+			v.SetInt(i)
+		} else {
+			v.SetInt(rand.Int63n(1000))
+		}
 	case reflect.Int8:
-		v.SetInt(rand.Int63n(8))
+		if len(examples) > 0 {
+			i, _ := strconv.ParseInt(examples[0], 10, 64)
+			v.SetInt(i)
+		} else {
+			v.SetInt(rand.Int63n(8))
+		}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		v.SetUint(rand.Uint64() % 100)
+		if len(examples) > 0 {
+			i, _ := strconv.ParseUint(examples[0], 10, 64)
+			v.SetUint(i)
+		} else {
+			v.SetUint(rand.Uint64() % 100)
+		}
+	case reflect.Float32, reflect.Float64:
+		if len(examples) > 0 {
+			i, _ := strconv.ParseFloat(examples[0], 64)
+			v.SetFloat(i)
+		} else {
+			v.SetFloat(rand.Float64())
+		}
 	case reflect.Struct:
 		if t.String() == "time.Time" {
 			v.Set(reflect.ValueOf(time.Now()))
