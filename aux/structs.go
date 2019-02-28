@@ -622,6 +622,10 @@ func Dedup(slice interface{}) {
 	v.Set(uniq)
 }
 
+func isExported(fieldName string) bool {
+	return len(fieldName) > 0 && (fieldName[0] >= 'A' && fieldName[0] <= 'Z')
+}
+
 // Struct2Map convert struct to map[string]interface{}
 func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	res := make(map[string]interface{})
@@ -646,8 +650,7 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 		field := val.Field(i)
 		kind := field.Kind()
 		isPtr := field.Type().Kind() == reflect.Ptr
-		n := []byte(val.Type().Field(i).Name)
-		if len(n) > 0 && (n[0] == '_' || (n[0] >= 'a' && n[0] <= 'z')) {
+		if !isExported(val.Type().Field(i).Name) {
 			continue
 		}
 		if isPtr {
@@ -696,44 +699,3 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	}
 	return res
 }
-
-// // IsEmptyStruct is empty struct
-// func IsEmptyStruct(st interface{}) bool {
-// 	return isEmptyStruct(reflect.TypeOf(st), reflect.ValueOf(st))
-// }
-
-// func isEmptyStruct(tp reflect.Type, val reflect.Value) bool {
-// 	if tp.Kind() == reflect.Ptr {
-// 		if val.IsNil() {
-// 			return true
-// 		} else {
-// 			return false
-// 		}
-// 		//val = val.Elem()
-// 		//tp = tp.Elem()
-// 	}
-// 	switch tp.Kind() {
-// 	case reflect.Map, reflect.Array, reflect.Slice, reflect.Chan:
-// 		return val.Len() == 0
-// 	case reflect.Func:
-// 		return val.IsNil()
-// 	case reflect.Struct:
-// 		// if tp.String() == "time.Time" {
-// 		// 	return val.Interface().(time.Time).IsZero()
-// 		// }
-// 		for i := 0; i < tp.NumField(); i++ {
-// 			ft := tp.Field(i)
-// 			f := val.Field(i)
-// 			if empty := isEmptyStruct(ft.Type, f); !empty {
-// 				return false
-// 			}
-// 		}
-// 		return true
-// 	default:
-// 		if !val.CanInterface() {
-// 			fmt.Println(val.String())
-// 			return val.String() == reflect.Zero(tp).String()
-// 		}
-// 		return val.Interface() == reflect.Zero(tp).Interface()
-// 	}
-// }
