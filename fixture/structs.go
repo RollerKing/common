@@ -55,6 +55,10 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		ft := t.Field(i)
+		n := []byte(ft.Name)
+		if len(n) > 0 && (n[0] == '_' || (n[0] >= 'a' && n[0] <= 'z')) {
+			continue
+		}
 		var examples []string
 		if ex, ok := ft.Tag.Lookup(ExampleTag); ok {
 			examples = []string{ex}

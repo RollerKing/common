@@ -646,6 +646,10 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 		field := val.Field(i)
 		kind := field.Kind()
 		isPtr := field.Type().Kind() == reflect.Ptr
+		n := []byte(val.Type().Field(i).Name)
+		if len(n) > 0 && (n[0] == '_' || (n[0] >= 'a' && n[0] <= 'z')) {
+			continue
+		}
 		if isPtr {
 			if field.IsNil() {
 				if !omitempty {
