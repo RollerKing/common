@@ -675,7 +675,14 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 			if field.Type().String() == "time.Time" {
 				res[name] = field.Interface()
 			} else {
-				res[name] = Struct2Map(field.Interface())
+				sub := Struct2Map(field.Interface())
+				if val.Type().Field(i).Anonymous {
+					for k, v := range sub {
+						res[k] = v
+					}
+				} else {
+					res[name] = sub
+				}
 			}
 		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr, reflect.Float32, reflect.Float64, reflect.String:
 			res[name] = field.Interface()
@@ -685,3 +692,44 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	}
 	return res
 }
+
+// // IsEmptyStruct is empty struct
+// func IsEmptyStruct(st interface{}) bool {
+// 	return isEmptyStruct(reflect.TypeOf(st), reflect.ValueOf(st))
+// }
+
+// func isEmptyStruct(tp reflect.Type, val reflect.Value) bool {
+// 	if tp.Kind() == reflect.Ptr {
+// 		if val.IsNil() {
+// 			return true
+// 		} else {
+// 			return false
+// 		}
+// 		//val = val.Elem()
+// 		//tp = tp.Elem()
+// 	}
+// 	switch tp.Kind() {
+// 	case reflect.Map, reflect.Array, reflect.Slice, reflect.Chan:
+// 		return val.Len() == 0
+// 	case reflect.Func:
+// 		return val.IsNil()
+// 	case reflect.Struct:
+// 		// if tp.String() == "time.Time" {
+// 		// 	return val.Interface().(time.Time).IsZero()
+// 		// }
+// 		for i := 0; i < tp.NumField(); i++ {
+// 			ft := tp.Field(i)
+// 			f := val.Field(i)
+// 			if empty := isEmptyStruct(ft.Type, f); !empty {
+// 				return false
+// 			}
+// 		}
+// 		return true
+// 	default:
+// 		if !val.CanInterface() {
+// 			fmt.Println(val.String())
+// 			return val.String() == reflect.Zero(tp).String()
+// 		}
+// 		return val.Interface() == reflect.Zero(tp).Interface()
+// 	}
+// }
