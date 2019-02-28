@@ -699,3 +699,53 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	}
 	return res
 }
+
+// IsZeroStruct is empty struct
+func IsZeroStruct(st interface{}) bool {
+	return isZeroValue(reflect.TypeOf(st), reflect.ValueOf(st))
+}
+
+func isBaseZeroValue(tp reflect.Type, val reflect.Value) (isbase bool, isempty bool) {
+	switch tp.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return true, reflect.Zero(tp).Int() == val.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return true, reflect.Zero(tp).Uint() == val.Uint()
+	case reflect.Bool:
+		return true, !reflect.Zero(tp).Bool()
+	case reflect.Float32, reflect.Float64:
+		return true, reflect.Zero(tp).Float() == val.Float()
+	case reflect.String:
+		return true, reflect.Zero(tp).String() == val.String()
+	}
+	return false, false
+}
+
+func isZeroValue(tp reflect.Type, val reflect.Value) bool {
+	if tp.Kind() == reflect.Ptr {
+		return val.IsNil()
+	}
+	switch tp.Kind() {
+	case reflect.Map, reflect.Array, reflect.Slice, reflect.Chan:
+		return val.Len() == 0
+	case reflect.Func:
+		return val.IsNil()
+	case reflect.Struct:
+		for i := 0; i < tp.NumField(); i++ {
+			ft := tp.Field(i)
+			f := val.Field(i)
+			if empty := isZeroValue(ft.Type, f); !empty {
+				return false
+			}
+		}
+		return true
+	default:
+		if isbase, isempty := isBaseZeroValue(tp, val); isbase {
+			return isempty
+		}
+		if !val.CanInterface() {
+			return true
+		}
+		return val.Interface() == reflect.Zero(tp).Interface()
+	}
+}
