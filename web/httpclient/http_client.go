@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -448,13 +449,45 @@ func lowercase_underline(name string) string {
 	return strings.ToLower(string(res))
 }
 
+var grtPool = sync.Pool{New: func() interface{} {
+	return newByteSlice(256)
+}}
+
+type byteSlice struct {
+	buf []byte
+}
+
+func newByteSlice(size int) *byteSlice {
+	return &byteSlice{
+		buf: make([]byte, size),
+	}
+}
+func (bs *byteSlice) reset() {
+	for i := 0; i < len(bs.buf); i++ {
+		bs.buf[i] = 0
+	}
+}
+
 // Should only used for debug
 func getGoroutineId() string {
-	buf := make([]byte, 1<<16)
-	runtime.Stack(buf, false)
-	tokens := strings.Split(string(buf), " ")
-	if len(tokens) > 1 {
-		return tokens[1]
+	bs := grtPool.Get().(*byteSlice)
+	bs.reset()
+	runtime.Stack(bs.buf, false)
+	start, end := -1, len(bs.buf)
+	for i, b := range bs.buf {
+		if b == byte(32) {
+			if start == -1 {
+				start = i + 1
+			} else {
+				end = i
+				break
+			}
+		}
 	}
-	return ""
+	var gid string
+	if start != -1 {
+		gid = string(bs.buf[start:end])
+	}
+	grtPool.Put(bs)
+	return gid
 }
