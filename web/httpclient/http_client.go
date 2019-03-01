@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -224,25 +225,27 @@ type Debugger struct {
 
 // TraceData data
 type TraceData struct {
-	Method     string
-	URL        string
-	ReqHeader  http.Header
-	ReqPayload []byte
-	ReqAt      time.Time
-	Cost       time.Duration
-	StatusCode int
-	Status     string
-	ResHeader  http.Header
-	ResData    []byte
+	GoroutineID string
+	Method      string
+	URL         string
+	ReqHeader   http.Header
+	ReqPayload  []byte
+	ReqAt       time.Time
+	Cost        time.Duration
+	StatusCode  int
+	Status      string
+	ResHeader   http.Header
+	ResData     []byte
 }
 
 func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, reqAt time.Time) TraceData {
 	tr := TraceData{
-		URL:        uri,
-		ReqAt:      reqAt,
-		Cost:       time.Since(reqAt),
-		ReqPayload: payload,
-		ResData:    body,
+		GoroutineID: getGoroutineId(),
+		URL:         uri,
+		ReqAt:       reqAt,
+		Cost:        time.Since(reqAt),
+		ReqPayload:  payload,
+		ResData:     body,
 	}
 	if req != nil {
 		if req.URL != nil {
@@ -306,10 +309,11 @@ func (d *Debugger) Inspect(tr TraceData) {
 	}
 	fmt.Fprintf(
 		writer,
-		"[%s] %s %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:%s\n[res headers]: %s\n[response]:%s\n",
+		"[%s] %s %s\n[goroutineid]: %s\n[req at]: %s\n[cost]: %v\n[req headers]: %s\n[req body]:%s\n[res headers]: %s\n[response]:%s\n",
 		tr.Method,
 		tr.URL,
 		tr.Status,
+		tr.GoroutineID,
 		tr.ReqAt.Format("2006-01-02 15:04:05"),
 		tr.Cost,
 		strings.Join(reqHeaders, " "),
@@ -442,4 +446,15 @@ func lowercase_underline(name string) string {
 		res = res[1:]
 	}
 	return strings.ToLower(string(res))
+}
+
+// Should only used for debug
+func getGoroutineId() string {
+	buf := make([]byte, 1<<16)
+	runtime.Stack(buf, false)
+	tokens := strings.Split(string(buf), " ")
+	if len(tokens) > 1 {
+		return tokens[1]
+	}
+	return ""
 }
