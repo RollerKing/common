@@ -702,7 +702,24 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 
 // IsZeroStruct is empty struct
 func IsZeroStruct(st interface{}) bool {
-	return isZeroValue(reflect.TypeOf(st), reflect.ValueOf(st))
+	tp := reflect.TypeOf(st)
+	val := reflect.ValueOf(st)
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+		val = val.Elem()
+	}
+	return isZeroValue(tp, val, false)
+}
+
+// IsStrictZeroStruct is empty struct, would check ptr content
+func IsStrictZeroStruct(st interface{}) bool {
+	tp := reflect.TypeOf(st)
+	val := reflect.ValueOf(st)
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+		val = val.Elem()
+	}
+	return isZeroValue(tp, val, true)
 }
 
 func isBaseZeroValue(tp reflect.Type, val reflect.Value) (isbase bool, isempty bool) {
@@ -721,9 +738,17 @@ func isBaseZeroValue(tp reflect.Type, val reflect.Value) (isbase bool, isempty b
 	return false, false
 }
 
-func isZeroValue(tp reflect.Type, val reflect.Value) bool {
+func isZeroValue(tp reflect.Type, val reflect.Value, checkPtrContent bool) bool {
 	if tp.Kind() == reflect.Ptr {
-		return val.IsNil()
+		if checkPtrContent {
+			if val.IsNil() {
+				return true
+			}
+			tp = tp.Elem()
+			val = val.Elem()
+		} else {
+			return val.IsNil()
+		}
 	}
 	switch tp.Kind() {
 	case reflect.Map, reflect.Array, reflect.Slice, reflect.Chan:
@@ -734,7 +759,7 @@ func isZeroValue(tp reflect.Type, val reflect.Value) bool {
 		for i := 0; i < tp.NumField(); i++ {
 			ft := tp.Field(i)
 			f := val.Field(i)
-			if empty := isZeroValue(ft.Type, f); !empty {
+			if empty := isZeroValue(ft.Type, f, checkPtrContent); !empty {
 				return false
 			}
 		}
