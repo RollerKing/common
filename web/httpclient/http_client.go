@@ -309,12 +309,12 @@ func (d *Debugger) Inspect(tr TraceData) {
 	}
 	fmt.Fprintf(
 		writer,
-		"[%s] %s %s\n[req at]: %s\n[statistics]: grtid=%s cost=%v \n[req headers]: %s\n[req body]:%s\n[res headers]: %s\n[response]:%s\n",
+		"[%s] %s %s\n[statistics]: grtid=%s, reqat=%s, cost=%v \n[req headers]: %s\n[req body]:%s\n[res headers]: %s\n[response]:%s\n",
 		tr.Method,
 		tr.URL,
 		tr.Status,
-		tr.ReqAt.Format("2006-01-02 15:04:05.000"),
 		tr.GoroutineID,
+		tr.ReqAt.Format("2006-01-02 15:04:05.000"),
 		tr.Cost,
 		strings.Join(reqHeaders, " "),
 		reqBody,
