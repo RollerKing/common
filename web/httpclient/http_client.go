@@ -5,15 +5,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/qjpcpu/common/aux"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"reflect"
-	"runtime"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -241,7 +240,7 @@ type TraceData struct {
 
 func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, reqAt time.Time) TraceData {
 	tr := TraceData{
-		GoroutineID: getGoroutineId(),
+		GoroutineID: aux.GetGoroutineID(),
 		URL:         uri,
 		ReqAt:       reqAt,
 		Cost:        time.Since(reqAt),
@@ -447,47 +446,4 @@ func lowercase_underline(name string) string {
 		res = res[1:]
 	}
 	return strings.ToLower(string(res))
-}
-
-var grtPool = sync.Pool{New: func() interface{} {
-	return newByteSlice(256)
-}}
-
-type byteSlice struct {
-	buf []byte
-}
-
-func newByteSlice(size int) *byteSlice {
-	return &byteSlice{
-		buf: make([]byte, size),
-	}
-}
-func (bs *byteSlice) reset() {
-	for i := 0; i < len(bs.buf); i++ {
-		bs.buf[i] = 0
-	}
-}
-
-// Should only used for debug
-func getGoroutineId() string {
-	bs := grtPool.Get().(*byteSlice)
-	bs.reset()
-	runtime.Stack(bs.buf, false)
-	start, end := -1, len(bs.buf)
-	for i, b := range bs.buf {
-		if b == byte(32) {
-			if start == -1 {
-				start = i + 1
-			} else {
-				end = i
-				break
-			}
-		}
-	}
-	var gid string
-	if start != -1 {
-		gid = string(bs.buf[start:end])
-	}
-	grtPool.Put(bs)
-	return gid
 }
