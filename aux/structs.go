@@ -3,6 +3,7 @@ package aux
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 )
@@ -146,76 +147,103 @@ func BucketStructs(distMap interface{}, srcArray interface{}, field string) {
 	}
 }
 
-// SortStructs 将结构体数组按某个字段排序
-// e.g. SortStructs([]string{"aa","bb"},[]Goods{g1,g2},"GoodsId")
-func SortStructs(indexes interface{}, srcArray interface{}, field string) {
-	orders := make(map[string][]int)
-	idxVal := reflect.ValueOf(indexes)
-	if idxVal.Kind() != reflect.Slice && idxVal.Kind() != reflect.Array {
-		panic("indexes must be array")
-	}
-	idxLength := idxVal.Len()
-	for i := 0; i < idxLength; i++ {
-		key := fmt.Sprint(idxVal.Index(i))
-		if arr, ok := orders[key]; ok {
-			orders[key] = append(arr, i)
-		} else {
-			orders[key] = []int{i}
-		}
+// SortStructs 将结构体数组按某个字段排序 e.g. SortStructs([]Goods{g1,g2},"GoodsId")
+func SortStructs(srcArray interface{}, field string) error {
+	if srcArray == nil {
+		return nil
 	}
 	src := reflect.ValueOf(srcArray)
 	if src.Kind() != reflect.Slice && src.Kind() != reflect.Array {
-		panic(fmt.Sprintf("src[%v] must be array", src.Kind()))
+		return fmt.Errorf("src[%v] must be array", src.Kind())
+	}
+	length := src.Len()
+	if length <= 1 {
+		return nil
 	}
 	isSrcPtr := false
 	srcType := src.Type().Elem()
 	if src.Type().Elem().Kind() == reflect.Ptr {
 		if src.Type().Elem().Elem().Kind() != reflect.Struct {
-			panic(fmt.Sprintf("src must be struct array:%v", src.Type().Elem().Kind()))
+			return fmt.Errorf("src must be struct array:%v", src.Type().Elem().Kind())
 		}
 		isSrcPtr = true
 		srcType = src.Type().Elem().Elem()
 	} else if src.Type().Elem().Kind() == reflect.Struct {
 		//ok
 	} else {
-		panic(fmt.Sprintf("src must be struct array:%v", src.Type().Elem().Kind()))
-	}
-	totalFields := srcType.NumField()
-	if totalFields == 0 {
-		return
+		return fmt.Errorf("src must be struct array:%v", src.Type().Elem().Kind())
 	}
 	iField := -1
-	for i := 0; i < totalFields; i++ {
+	for i := 0; i < srcType.NumField(); i++ {
 		if srcType.Field(i).Name == field {
 			iField = i
 			break
 		}
 	}
 	if iField < 0 {
-		panic("no such field " + field)
+		return fmt.Errorf("no such field %s", field)
 	}
 
-	length := src.Len()
-	if length != idxLength {
-		panic("index and values array length not match")
+	ss := &structSlice{
+		data: make([]structWrapper, length),
 	}
-	copyArray := reflect.MakeSlice(reflect.TypeOf(srcArray), length, length)
-	reflect.Copy(copyArray, src)
+	if isSrcPtr {
+		ss.tp = src.Index(0).Elem().Field(iField).Type()
+	} else {
+		ss.tp = src.Index(0).Field(iField).Type()
+	}
 	for i := 0; i < length; i++ {
-		var key string
+		ss.data[i].index = i
 		if isSrcPtr {
-			key = fmt.Sprint(copyArray.Index(i).Elem().FieldByName(field))
+			ss.data[i].field = src.Index(i).Elem().Field(iField)
 		} else {
-			key = fmt.Sprint(copyArray.Index(i).FieldByName(field))
+			ss.data[i].field = src.Index(i).Field(iField)
 		}
-		j := 0
-		jrr := orders[key]
-		if len(jrr) > 0 {
-			j = jrr[0]
-			orders[key] = jrr[1:]
-		}
-		src.Index(j).Set(copyArray.Index(i))
 	}
+	sort.Sort(ss)
+	checked := make(map[int]int)
+	basei, to := 0, 0
+	from := ss.data[to].index
+	base := reflect.New(srcType)
+	if !isSrcPtr {
+		base = base.Elem()
+		base.Set(src.Index(to))
+	} else {
+		base.Elem().Set(src.Index(to).Elem())
+	}
+	for cnt := 0; cnt < length; cnt++ {
+		checked[to] = 1
+		if from == basei || from == to {
+			if !isSrcPtr {
+				src.Index(to).Set(base)
+			} else {
+				src.Index(to).Elem().Set(base.Elem())
+			}
+			for i := 0; i < length; i++ {
+				if _, ok := checked[i]; !ok {
+					basei = i
+					base = reflect.New(srcType)
+					if !isSrcPtr {
+						base = base.Elem()
+						base.Set(src.Index(i))
+					} else {
+						base.Elem().Set(src.Index(i).Elem())
+					}
+					from, to = ss.data[basei].index, basei
+					break
+				}
+			}
+			continue
+		}
+		if !isSrcPtr {
+			src.Index(to).Set(src.Index(from))
+		} else {
+			src.Index(to).Elem().Set(src.Index(from).Elem())
+		}
+		to = from
+		from = ss.data[from].index
+	}
+	return nil
 }
 
 var typeOfTime = reflect.TypeOf(time.Time{})
@@ -451,4 +479,39 @@ func isZeroValue(tp reflect.Type, val reflect.Value, checkPtrContent bool) bool 
 		}
 		return val.Interface() == reflect.Zero(tp).Interface()
 	}
+}
+
+type structWrapper struct {
+	field reflect.Value
+	index int
+}
+
+type structSlice struct {
+	data []structWrapper
+	tp   reflect.Type
+}
+
+func (s *structSlice) Len() int {
+	return len(s.data)
+}
+func (s *structSlice) Swap(i, j int) {
+	s.data[i], s.data[j] = s.data[j], s.data[i]
+}
+
+func (s *structSlice) Less(i, j int) bool {
+	switch s.tp.Kind() {
+	case reflect.String:
+		return s.data[i].field.String() < s.data[j].field.String()
+	case reflect.Float32, reflect.Float64:
+		return s.data[i].field.Float() < s.data[j].field.Float()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return s.data[i].field.Int() < s.data[j].field.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return s.data[i].field.Uint() < s.data[j].field.Uint()
+	case reflect.Struct:
+		if s.tp == typeOfTime {
+			return s.data[i].field.Interface().(time.Time).Before(s.data[j].field.Interface().(time.Time))
+		}
+	}
+	return fmt.Sprint(s.data[i].field.Interface()) < fmt.Sprint(s.data[j].field.Interface())
 }
