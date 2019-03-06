@@ -323,6 +323,7 @@ func (d *Debugger) Inspect(tr TraceData) {
 	)
 }
 
+// SimpleKVToQs simple struct or map to url values
 func SimpleKVToQs(obj interface{}) url.Values {
 	if mp, ok := obj.(map[string]interface{}); ok {
 		return mapToQs(mp)
@@ -375,7 +376,7 @@ func structToQs(obj interface{}) url.Values {
 			if tag != "" {
 				kstr = tag
 			} else {
-				kstr = lowercase_underline(typeField.Name)
+				kstr = lowercaseUnderline(typeField.Name)
 			}
 			if vstr != "" {
 				vals.Add(kstr, vstr)
@@ -416,7 +417,7 @@ func mapToQs(hash map[string]interface{}) url.Values {
 	return vals
 }
 
-func lowercase_underline(name string) string {
+func lowercaseUnderline(name string) string {
 	data := []byte(name)
 	var res []byte
 	var i int
