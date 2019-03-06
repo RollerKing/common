@@ -324,24 +324,27 @@ func (d *Debugger) Inspect(tr TraceData) {
 }
 
 // SimpleKVToQs simple struct or map to url values
-func SimpleKVToQs(obj interface{}) url.Values {
-	if mp, ok := obj.(map[string]interface{}); ok {
-		return mapToQs(mp)
+func SimpleKVToQs(obj interface{}, optTimeLayout ...string) url.Values {
+	tp := reflect.TypeOf(obj)
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
 	}
-	if mp, ok := obj.(*map[string]interface{}); ok {
-		return mapToQs(*mp)
+	timeLayout := "2006-01-02 15:04:05"
+	if len(optTimeLayout) > 0 && optTimeLayout[0] != "" {
+		timeLayout = optTimeLayout[0]
 	}
-	if mp, ok := obj.(map[string]string); ok {
-		vals := url.Values{}
-		for k, v := range mp {
-			vals.Add(k, v)
-		}
-		return vals
+	switch tp.Kind() {
+	case reflect.Map:
+		return maptoQs(obj, timeLayout)
+	case reflect.Struct:
+		return structToQs(obj, timeLayout)
 	}
-	return structToQs(obj)
+	return url.Values{}
 }
 
-func structToQs(obj interface{}) url.Values {
+var typeOfTime = reflect.TypeOf(time.Time{})
+
+func structToQs(obj interface{}, timeLayout string) url.Values {
 	vals := url.Values{}
 	value := reflect.ValueOf(obj)
 	if value.Kind() == reflect.Ptr {
@@ -351,32 +354,44 @@ func structToQs(obj interface{}) url.Values {
 	for i := 0; i < num; i++ {
 		valueField := value.Field(i)
 		typeField := value.Type().Field(i)
-		if valueField.Interface() != nil {
+		if valueField.CanInterface() && valueField.Interface() != nil {
 			var kstr, vstr string
 			tp := typeField.Type
 			if tp.Kind() == reflect.Ptr {
 				tp = typeField.Type.Elem()
 				valueField = valueField.Elem()
 			}
-			if tp.Kind() == reflect.Struct && tp.String() == "time.Time" {
+			if tp.Kind() == reflect.Struct && tp == typeOfTime {
 				if valueField.IsValid() {
-					vstr = valueField.Interface().(time.Time).Format("2006-01-02 15:04:05")
+					vstr = valueField.Interface().(time.Time).Format(timeLayout)
 				}
 			} else if tp.Kind() == reflect.Slice || tp.Kind() == reflect.Array {
 				size := valueField.Len()
 				list := make([]string, size)
 				for i := 0; i < size; i++ {
-					list[i] = fmt.Sprint(valueField.Index(i).Interface())
+					if tp.Elem() == typeOfTime {
+						list[i] = valueField.Index(i).Interface().(time.Time).Format(timeLayout)
+					} else {
+						list[i] = fmt.Sprint(valueField.Index(i).Interface())
+					}
 				}
 				vstr = strings.Join(list, ",")
 			} else {
 				vstr = fmt.Sprint(valueField.Interface())
 			}
-			tag := strings.Split(typeField.Tag.Get("qs"), ",")[0]
+			var tag string
+			for getTag := true; getTag; getTag = false {
+				if tag = strings.Split(typeField.Tag.Get("form"), ",")[0]; tag != "" {
+					break
+				}
+				if tag = strings.Split(typeField.Tag.Get("json"), ",")[0]; tag != "" {
+					break
+				}
+			}
 			if tag != "" {
 				kstr = tag
 			} else {
-				kstr = lowercaseUnderline(typeField.Name)
+				kstr = aux.UnderlineLowercase(typeField.Name)
 			}
 			if vstr != "" {
 				vals.Add(kstr, vstr)
@@ -386,65 +401,45 @@ func structToQs(obj interface{}) url.Values {
 	return vals
 }
 
-func mapToQs(hash map[string]interface{}) url.Values {
+func maptoQs(hash interface{}, timeLayout string) url.Values {
 	vals := url.Values{}
-	for k, v := range hash {
-		if v != nil {
-			var vstr string
-			tp := reflect.TypeOf(v)
-			value := reflect.ValueOf(v)
-			if tp.Kind() == reflect.Ptr {
-				tp = tp.Elem()
-				value = value.Elem()
+	tp := reflect.TypeOf(hash)
+	value := reflect.ValueOf(hash)
+	if tp.Kind() == reflect.Ptr {
+		value = value.Elem()
+	}
+	keys := value.MapKeys()
+	for _, key := range keys {
+		vv := value.MapIndex(key)
+		if !key.CanInterface() || !vv.CanInterface() || vv.Interface() == nil {
+			continue
+		}
+		keyStr := fmt.Sprint(key.Interface())
+		var vStr string
+		vtp := reflect.TypeOf(vv.Interface())
+		switch vtp.Kind() {
+		case reflect.Struct:
+			if vtp == typeOfTime {
+				vStr = vv.Interface().(time.Time).Format(timeLayout)
 			}
-			if tp.Kind() == reflect.Struct && tp.String() == "time.Time" {
-				vstr = value.Interface().(time.Time).Format("2006-01-02 15:04:05")
-			} else if tp.Kind() == reflect.Slice || tp.Kind() == reflect.Array {
-				size := value.Len()
-				list := make([]string, size)
-				for i := 0; i < size; i++ {
-					list[i] = fmt.Sprint(value.Index(i).Interface())
+		case reflect.Slice, reflect.Array:
+			vvv := reflect.ValueOf(vv.Interface())
+			size := vvv.Len()
+			list := make([]string, size)
+			for i := 0; i < size; i++ {
+				if vtp.Elem() == typeOfTime {
+					list[i] = vvv.Index(i).Interface().(time.Time).Format(timeLayout)
+				} else {
+					list[i] = fmt.Sprint(vvv.Index(i).Interface())
 				}
-				vstr = strings.Join(list, ",")
-			} else {
-				vstr = fmt.Sprint(v)
 			}
-			if vstr != "" {
-				vals.Add(k, vstr)
-			}
+			vStr = strings.Join(list, ",")
+		default:
+			vStr = fmt.Sprint(vv.Interface())
+		}
+		if vStr != "" {
+			vals.Add(keyStr, vStr)
 		}
 	}
 	return vals
-}
-
-func lowercaseUnderline(name string) string {
-	data := []byte(name)
-	var res []byte
-	var i int
-	for i < len(data) {
-		if data[i] >= 65 && data[i] <= 90 {
-			start := i
-			i++
-			for i < len(data) {
-				if data[i] < 65 || data[i] > 90 {
-					break
-				}
-				i++
-			}
-			res = append(res, byte(95))
-			if i < len(data) && i-start >= 2 {
-				res = append(res, data[start:i-1]...)
-				res = append(res, byte(95), data[i-1])
-			} else {
-				res = append(res, data[start:i]...)
-			}
-			continue
-		}
-		res = append(res, data[i])
-		i++
-	}
-	if len(res) > 0 && res[0] == byte(95) {
-		res = res[1:]
-	}
-	return strings.ToLower(string(res))
 }
