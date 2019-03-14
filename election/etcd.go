@@ -6,6 +6,7 @@ import (
 	"github.com/qjpcpu/log"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
+	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
 type Role int
@@ -70,7 +71,7 @@ func (h *HA) Start() error {
 	}
 	cli, err := clientv3.New(clientv3.Config{Endpoints: h.endpoints})
 	if err != nil {
-		log.Error(err)
+		log.Errorf("[election]%v", err)
 		return err
 	}
 	defer cli.Close()
@@ -83,30 +84,58 @@ func (h *HA) notifyState(state Role) {
 	if h.last != state {
 		h.roleC <- state
 		h.last = state
-		log.Debug("switch to ", state.String())
+		log.Debugf("[election]switch to %s", state.String())
 	}
 }
 
 func (h *HA) startSession(cli *clientv3.Client) {
 	session, err := concurrency.NewSession(cli, concurrency.WithTTL(h.ttl))
 	if err != nil {
-		log.Error("create session fail:", err)
+		log.Errorf("[election]create session fail:%v", err)
 		return
 	}
 	defer session.Close()
-	val := "ha"
+	defer h.notifyState(Candidate)
+	val := "election"
 	elec := concurrency.NewElection(session, h.keyPrefix)
 	for {
 		if err := elec.Campaign(context.Background(), val); err != nil {
-			log.Error("campaign fail:", err)
+			log.Errorf("[election]campaign fail:%v", err)
 			h.notifyState(Candidate)
 			continue
 		}
+		lderVal, err := elec.Leader(context.Background())
+		if err != nil {
+			log.Errorf("[election]get leader key fail:%v", err)
+			h.notifyState(Candidate)
+			continue
+		}
+		if len(lderVal.Kvs) == 0 {
+			log.Error("[election]get empty leader key")
+			h.notifyState(Candidate)
+			continue
+		}
+		lderKey := string(lderVal.Kvs[0].Key)
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		log.Debugf("[election]start watch key %s", lderKey)
+		wch := cli.Watch(cctx, lderKey, clientv3.WithRev(lderVal.Header.GetRevision()))
 		h.notifyState(Leader)
-		<-session.Done()
-		break
+		for {
+			select {
+			case <-session.Done():
+				return
+			case wr := <-wch:
+				for _, ev := range wr.Events {
+					if ev.Type == mvccpb.DELETE {
+						log.Debugf("[election] %s is lost unexpected, so resign myself", lderKey)
+						elec.Resign(context.Background())
+						return
+					}
+				}
+			}
+		}
 	}
-	h.notifyState(Candidate)
 }
 
 func (r Role) String() string {
