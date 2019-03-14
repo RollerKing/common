@@ -7,6 +7,7 @@ import (
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/mvcc/mvccpb"
+	"sync/atomic"
 )
 
 type Role int
@@ -25,6 +26,8 @@ type HA struct {
 	ttl       int
 	last      Role
 	roleC     chan Role
+	stopC     chan struct{}
+	isStopped int32
 }
 
 // New new ha
@@ -35,6 +38,7 @@ func New(endpoints []string, key string) *HA {
 		last:      Candidate,
 		ttl:       30,
 		roleC:     make(chan Role, 1),
+		stopC:     make(chan struct{}, 1),
 	}
 }
 
@@ -75,8 +79,16 @@ func (h *HA) Start() error {
 		return err
 	}
 	defer cli.Close()
-	for {
+	for h.isStopped == 0 {
 		h.startSession(cli)
+	}
+	return nil
+}
+
+// Stop ha
+func (h *HA) Stop() {
+	if atomic.CompareAndSwapInt32(&h.isStopped, 0, 1) {
+		close(h.stopC)
 	}
 }
 
@@ -123,6 +135,9 @@ func (h *HA) startSession(cli *clientv3.Client) {
 		h.notifyState(Leader)
 		for {
 			select {
+			case <-h.stopC:
+				elec.Resign(context.Background())
+				return
 			case <-session.Done():
 				return
 			case wr := <-wch:
