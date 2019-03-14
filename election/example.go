@@ -15,7 +15,7 @@ func Example() {
 	var commonEtcdKey = "/share-key"
 	endpoints := []string{"127.0.0.1:2379"}
 	// server1 on host1
-	server1 := New(endpoints, commonEtcdKey).TTL(3)
+	server1 := New(endpoints, commonEtcdKey)
 	fmt.Println("server1 started, wait to be leader...")
 	downOne := 0
 	go server1.Start()
@@ -31,6 +31,8 @@ func Example() {
 						server1.Stop() // simulate server is down unexpected
 						fmt.Println("server1 is down unexpected!")
 						return
+					} else {
+						close(finishExampleC)
 					}
 				} else {
 					fmt.Printf("server1 switch to %s, I cant work\n", role.String())
@@ -41,7 +43,7 @@ func Example() {
 		}
 	}()
 	// server2 on another host
-	server2 := New(endpoints, commonEtcdKey).TTL(3)
+	server2 := New(endpoints, commonEtcdKey)
 	fmt.Println("server2 started, wait to be leader...")
 	go server2.Start()
 	go func() {
@@ -56,6 +58,8 @@ func Example() {
 						server2.Stop() // simulate server is down unexpected
 						fmt.Println("server2 is down unexpected!")
 						return
+					} else {
+						close(finishExampleC)
 					}
 				} else {
 					fmt.Printf("server2 switch to %s, I cant work\n", role.String())
@@ -65,7 +69,6 @@ func Example() {
 			}
 		}
 	}()
-
-	time.Sleep(10 * time.Second)
-	close(finishExampleC)
+	<-finishExampleC
+	fmt.Println("example finished.")
 }
