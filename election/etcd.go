@@ -3,10 +3,12 @@ package election
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/qjpcpu/log"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/mvcc/mvccpb"
+	"os"
 	"sync/atomic"
 )
 
@@ -109,6 +111,9 @@ func (h *HA) startSession(cli *clientv3.Client) {
 	defer session.Close()
 	defer h.notifyState(Candidate)
 	val := "election"
+	if h, err := os.Hostname(); err == nil {
+		val += fmt.Sprintf(":%s:%d", h, os.Getpid())
+	}
 	elec := concurrency.NewElection(session, h.keyPrefix)
 	for {
 		if err := elec.Campaign(context.Background(), val); err != nil {
