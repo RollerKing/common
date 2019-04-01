@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"github.com/qjpcpu/common/crumbs"
 	"fmt"
-	aux "github.com/qjpcpu/common/crumbs"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -240,7 +240,7 @@ type TraceData struct {
 
 func buildTraceData(uri string, req *http.Request, res *http.Response, payload, body []byte, reqAt time.Time) TraceData {
 	tr := TraceData{
-		GoroutineID: aux.GetGoroutineID(),
+		GoroutineID: crumbs.GetGoroutineID(),
 		URL:         uri,
 		ReqAt:       reqAt,
 		Cost:        time.Since(reqAt),
@@ -391,7 +391,7 @@ func structToQs(obj interface{}, timeLayout string) url.Values {
 			if tag != "" {
 				kstr = tag
 			} else {
-				kstr = aux.UnderlineLowercase(typeField.Name)
+				kstr = crumbs.UnderlineLowercase(typeField.Name)
 			}
 			if vstr != "" {
 				vals.Add(kstr, vstr)
