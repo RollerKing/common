@@ -1,6 +1,7 @@
 package http
 
 import (
+	"errors"
 	"net"
 	nethttp "net/http"
 	"strconv"
@@ -25,16 +26,39 @@ func (ln tcpKeepAliveListener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
-// ListenOnAnyPort serve http on any port, return port by retPort if not nil
-func ListenOnAnyPort(h nethttp.Handler, retPort *string) error {
-	server := nethttp.Server{Handler: h}
+type ServerOnAnyPort struct {
+	addr string
+	fn   func() error
+}
+
+func (sp ServerOnAnyPort) Addr() string {
+	return sp.addr
+}
+
+func (sp ServerOnAnyPort) Serve() error {
+	if sp.fn == nil {
+		return errors.New("serve nothing")
+	}
+	return sp.fn()
+}
+
+// ListenOnAnyPort serve http on any port
+func ListenOnAnyPort(h nethttp.Handler) ServerOnAnyPort {
+	sp := ServerOnAnyPort{}
+	server := &nethttp.Server{Handler: h}
 	ln, err := net.Listen("tcp", ":0")
 	if err != nil {
-		return err
+		sp.fn = func() error {
+			return err
+		}
+		return sp
 	}
-	server.Addr = ":" + strconv.Itoa(ln.Addr().(*net.TCPAddr).Port)
-	if retPort != nil {
-		*retPort = server.Addr
+	port := ln.Addr().(*net.TCPAddr).Port
+	server.Addr = ":" + strconv.Itoa(port)
+
+	sp.addr = server.Addr
+	sp.fn = func() error {
+		return server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
 	}
-	return server.Serve(tcpKeepAliveListener{ln.(*net.TCPListener)})
+	return sp
 }
