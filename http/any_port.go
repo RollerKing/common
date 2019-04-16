@@ -26,15 +26,18 @@ func (ln tcpKeepAliveListener) Accept() (net.Conn, error) {
 	return tc, nil
 }
 
+// ServerOnAnyPort handle
 type ServerOnAnyPort struct {
 	addr string
 	fn   func() error
 }
 
+// Addr return :port
 func (sp ServerOnAnyPort) Addr() string {
 	return sp.addr
 }
 
+// Serve http service
 func (sp ServerOnAnyPort) Serve() error {
 	if sp.fn == nil {
 		return errors.New("serve nothing")
