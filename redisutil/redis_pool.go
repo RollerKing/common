@@ -23,6 +23,48 @@ type Options struct {
 	Wait           bool `json:"wait" toml:"wait" example:"false"`
 }
 
+func WithConnectTimeout(timeout int) OptFunc {
+	return func(opt *Options) {
+		opt.ConnectTimeout = timeout
+	}
+}
+
+func WithReadTimeout(timeout int) OptFunc {
+	return func(opt *Options) {
+		opt.ReadTimeout = timeout
+	}
+}
+
+func WithWriteTimeout(timeout int) OptFunc {
+	return func(opt *Options) {
+		opt.WriteTimeout = timeout
+	}
+}
+
+func WithIdleTimeout(timeout int) OptFunc {
+	return func(opt *Options) {
+		opt.IdleTimeout = timeout
+	}
+}
+
+func WithWait(w bool) OptFunc {
+	return func(opt *Options) {
+		opt.Wait = w
+	}
+}
+
+func WithMaxActive(active int) OptFunc {
+	return func(opt *Options) {
+		opt.MaxActive = active
+	}
+}
+
+func WithMaxIdle(idle int) OptFunc {
+	return func(opt *Options) {
+		opt.MaxIdle = idle
+	}
+}
+
 // OptFunc redis option function
 type OptFunc func(*Options)
 
