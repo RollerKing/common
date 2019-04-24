@@ -15,6 +15,8 @@ import (
 */
 var ErrNoCache = errors.New("No such data")
 
+const reserveField = "__expire_at_max__"
+
 // redis-cli --eval h.lua h , c current_timestamp  isCut
 var getScript = redis.NewScript(1, `
 if redis.call("HEXISTS", KEYS[1],ARGV[1]) == 0 then
@@ -60,49 +62,6 @@ end
 return tonumber(decoded["comm"]["ver"])
 `)
 
-// reids-cli --eval h.lua KEY_NAME , current_timestamp  scan_count
-var scanScript = redis.NewScript(1, `
-	local cur_time = tonumber(ARGV[1])
-  local expire_info=redis.call("ZRANGE", KEYS[1],0,tonumber(ARGV[2]),"WITHSCORES")
-	local index = 1
-	local max = table.getn(expire_info)
-  local vals = {}
-	while (index + 1) <= max
-  do
-		local member = expire_info[index]
-		local expire_time = expire_info[index+1] + 0
-		index = index + 2
-		if expire_time > cur_time then
-			break
-		end
-    table.insert(vals, member)
-		redis.call("ZREM", KEYS[1], member)
-  end
-  return vals
-`)
-
-// redis-cli --eval h.lua h ,  current_timestamp f1 f2 ...
-var cleanScript = redis.NewScript(1, `
-local dels = 0
-local tm = tonumber(ARGV[1])
-for i,v in ipairs(ARGV) do
-  if i > 1 and redis.call("HEXISTS", KEYS[1],v) == 1 then
-    local payload = redis.call("HGET",KEYS[1],v)
-    local data = cjson.decode(payload)
-    if tonumber(data["comm"]["exp"]) < tm then
-      redis.call("HDEL",KEYS[1],v)
-      dels = dels + 1
-    end
-  end
-end
-return dels
-`)
-
-type TimeHash struct {
-	pool *redis.Pool
-	Name string
-}
-
 type CommonPayload struct {
 	ExpireAt int64 `json:"exp"`
 	Version  int64 `json:"ver"`
@@ -118,80 +77,22 @@ type cachePayloadOut struct {
 	Data          *json.RawMessage `json:"data"`
 }
 
-func New(p *redis.Pool, name string) *TimeHash {
-	return &TimeHash{pool: p, Name: name}
-}
-
-func (ce *TimeHash) getCEKey() string {
-	return ce.Name
-}
-
-func (ce *TimeHash) getExpKey() string {
-	return ce.getCEKey() + ":exp"
-}
-
-func (ce *TimeHash) Del(keys ...string) error {
-	if len(keys) == 0 {
+func Del(conn redis.Conn, key string, fields ...string) error {
+	if len(fields) == 0 {
 		return nil
 	}
-	conn := ce.pool.Get()
-	defer conn.Close()
-	params := []interface{}{ce.getCEKey()}
-	for _, key := range keys {
+	params := []interface{}{key}
+	for _, key := range fields {
 		params = append(params, key)
 	}
 	_, err := conn.Do("HDEL", params...)
 	return err
 }
 
-func (ce *TimeHash) Clean(counts ...int) (int, error) {
-	count := 100
-	if len(counts) == 1 && counts[0] > 0 && counts[0] <= 1000 {
-		count = counts[0]
-	}
-	var dels, d int
-	var err error
-	for {
-		d, err = ce.CleanOnce(count)
-		dels += d
-		if err != nil {
-			break
-		}
-		if d <= 0 {
-			break
-		}
-	}
-	return dels, err
-}
-
-func (ce *TimeHash) CleanOnce(count int) (int, error) {
-	conn := ce.pool.Get()
-	defer conn.Close()
-	now := time.Now().Unix()
-	list, err := redis.Strings(scanScript.Do(conn, ce.getExpKey(), now, count))
-	if err != nil {
-		return 0, err
-	}
-	if len(list) == 0 {
-		return 0, nil
-	}
-	params := []interface{}{ce.getCEKey(), now}
-	for _, item := range list {
-		params = append(params, item)
-	}
-	dels, _ := redis.Int(cleanScript.Do(conn, params...))
-	return dels, nil
-}
-
-// Put 放入数据并返回数据版本号
-func (ce *TimeHash) Put(key string, data interface{}, expirtAts ...time.Time) (int64, error) {
-	now := time.Now()
+func Set(conn redis.Conn, key, filed string, data interface{}, ttl int) (int64, error) {
 	var expirtAt time.Time
-	if len(expirtAts) > 0 {
-		if expirtAts[0].Before(now) {
-			return 0, nil
-		}
-		expirtAt = expirtAts[0]
+	if ttl > 0 {
+		expirtAt = time.Now().Add(time.Duration(ttl) * time.Second)
 	} else {
 		expirtAt = time.Now().AddDate(10, 0, 0)
 	}
@@ -205,24 +106,17 @@ func (ce *TimeHash) Put(key string, data interface{}, expirtAts ...time.Time) (i
 	if err != nil {
 		return 0, err
 	}
-	conn := ce.pool.Get()
-	defer conn.Close()
-	ver, err := redis.Int64(setScript.Do(conn, ce.getCEKey(), key, b, time.Now().Unix()))
-	if err == nil {
-		conn.Do("ZADD", ce.getExpKey(), expirtAt.Unix(), key)
-	}
+	ver, err := redis.Int64(setScript.Do(conn, key, filed, b, time.Now().Unix()))
 	return ver, err
 }
 
 // data 必须为指针
-func (ce *TimeHash) fetch(key string, data interface{}, isCut bool) (int64, error) {
-	conn := ce.pool.Get()
-	defer conn.Close()
+func fetch(conn redis.Conn, key, field string, data interface{}, isCut bool) (int64, error) {
 	cut := 0
 	if isCut {
 		cut = 1
 	}
-	res, err := redis.Bytes(getScript.Do(conn, ce.getCEKey(), key, time.Now().Unix(), cut))
+	res, err := redis.Bytes(getScript.Do(conn, key, field, time.Now().Unix(), cut))
 	if err != nil {
 		if err == redis.ErrNil {
 			return 0, ErrNoCache
@@ -237,11 +131,33 @@ func (ce *TimeHash) fetch(key string, data interface{}, isCut bool) (int64, erro
 }
 
 // data 必须为指针
-func (ce *TimeHash) Get(key string, data interface{}) (int64, error) {
-	return ce.fetch(key, data, false)
+func Get(conn redis.Conn, key, field string, data interface{}) (int64, error) {
+	return fetch(conn, key, field, data, false)
 }
 
 // data 必须为指针
-func (ce *TimeHash) Cut(key string, data interface{}) (int64, error) {
-	return ce.fetch(key, data, true)
+func Cut(conn redis.Conn, key, field string, data interface{}) (int64, error) {
+	return fetch(conn, key, field, data, true)
+}
+
+func GetAll(conn redis.Conn, key string) (map[string][]byte, error) {
+	res := make(map[string][]byte)
+	m, err := redis.StringMap(conn.Do("HGETALL", key))
+	if err != nil {
+		return res, err
+	}
+	now := time.Now().Unix()
+	for k, v := range m {
+		if k == reserveField || len(v) == 0 {
+			continue
+		}
+		p := cachePayloadOut{}
+		if err = json.Unmarshal([]byte(v), &p); err != nil {
+			return res, err
+		}
+		if p.Data != nil && p.ExpireAt > now {
+			res[k] = []byte(*p.Data)
+		}
+	}
+	return res, nil
 }
