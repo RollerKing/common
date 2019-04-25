@@ -3,6 +3,7 @@ package timehash
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"time"
 )
@@ -13,9 +14,7 @@ import (
  comm.ver: 每SET一次数据,ver+1
  comm.exp: 过期unix时间戳
 */
-var ErrNoCache = errors.New("No such data")
-
-const reserveField = "__expire_at_max__"
+const reservedField = "__thmax__"
 
 // redis-cli --eval h.lua h , c current_timestamp  isCut
 var getScript = redis.NewScript(1, `
@@ -37,6 +36,7 @@ end
 
 // redis-cli --eval h.lua h , c  'data' current_timestamp
 var setScript = redis.NewScript(1, `
+local decoded = nil
 if redis.call("HEXISTS", KEYS[1],ARGV[1]) == 1 then
   local data = cjson.decode(ARGV[2])
   local old_data = cjson.decode(redis.call("HGET",KEYS[1],ARGV[1]))
@@ -44,11 +44,12 @@ if redis.call("HEXISTS", KEYS[1],ARGV[1]) == 1 then
   if old_data["comm"]["exp"] == nil or tonumber(old_data["comm"]["exp"]) < tonumber(ARGV[3]) then old_data["comm"]["ver"] = -1 end
   data["comm"]["ver"] = old_data["comm"]["ver"] + 1
   ARGV[2] = cjson.encode(data)
+  decoded = data
 end
 redis.call("HSET",KEYS[1],ARGV[1],ARGV[2])
-local decoded = cjson.decode(ARGV[2])
+if decoded == nil then decoded = cjson.decode(ARGV[2]) end
 local exp = tonumber(decoded["comm"]["exp"])
-local exp_key = "__expire_at_max__"
+local exp_key = "__thmax__"
 if redis.call("HEXISTS", KEYS[1],exp_key) == 1 then
   local oexp = tonumber(redis.call("HGET",KEYS[1],exp_key))
   if oexp < exp then
@@ -77,6 +78,7 @@ type cachePayloadOut struct {
 	Data          *json.RawMessage `json:"data"`
 }
 
+// Del 删除field
 func Del(conn redis.Conn, key string, fields ...string) error {
 	if len(fields) == 0 {
 		return nil
@@ -89,7 +91,11 @@ func Del(conn redis.Conn, key string, fields ...string) error {
 	return err
 }
 
+// Set 设置field,data可为任意对象
 func Set(conn redis.Conn, key, filed string, data interface{}, ttl int) (int64, error) {
+	if filed == reservedField {
+		return 0, errors.New("reservedField")
+	}
 	var expirtAt time.Time
 	if ttl > 0 {
 		expirtAt = time.Now().Add(time.Duration(ttl) * time.Second)
@@ -112,6 +118,9 @@ func Set(conn redis.Conn, key, filed string, data interface{}, ttl int) (int64, 
 
 // data 必须为指针
 func fetch(conn redis.Conn, key, field string, data interface{}, isCut bool) (int64, error) {
+	if field == reservedField {
+		return 0, errors.New("reservedField")
+	}
 	cut := 0
 	if isCut {
 		cut = 1
@@ -119,7 +128,7 @@ func fetch(conn redis.Conn, key, field string, data interface{}, isCut bool) (in
 	res, err := redis.Bytes(getScript.Do(conn, key, field, time.Now().Unix(), cut))
 	if err != nil {
 		if err == redis.ErrNil {
-			return 0, ErrNoCache
+			return 0, fmt.Errorf("timehash: %s.%s not exists", key, field)
 		}
 		return 0, err
 	}
@@ -130,16 +139,17 @@ func fetch(conn redis.Conn, key, field string, data interface{}, isCut bool) (in
 	return p.CommonPayload.Version, json.Unmarshal(*p.Data, data)
 }
 
-// data 必须为指针
+// Get field值,data 必须为指针
 func Get(conn redis.Conn, key, field string, data interface{}) (int64, error) {
 	return fetch(conn, key, field, data, false)
 }
 
-// data 必须为指针
+// Cut 获取并删除field,data 必须为指针
 func Cut(conn redis.Conn, key, field string, data interface{}) (int64, error) {
 	return fetch(conn, key, field, data, true)
 }
 
+// GetAll 获取所有key:value
 func GetAll(conn redis.Conn, key string) (map[string][]byte, error) {
 	res := make(map[string][]byte)
 	m, err := redis.StringMap(conn.Do("HGETALL", key))
@@ -148,7 +158,7 @@ func GetAll(conn redis.Conn, key string) (map[string][]byte, error) {
 	}
 	now := time.Now().Unix()
 	for k, v := range m {
-		if k == reserveField || len(v) == 0 {
+		if k == reservedField || len(v) == 0 {
 			continue
 		}
 		p := cachePayloadOut{}
