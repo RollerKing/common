@@ -1,10 +1,10 @@
 package timehash
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
+	"github.com/qjpcpu/common/json"
 	"time"
 )
 
