@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 )
 
+// Debug would print enquue/dequeue information
 var Debug bool
 
 const (
