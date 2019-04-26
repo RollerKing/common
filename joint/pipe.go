@@ -7,15 +7,17 @@ import (
 	"math"
 	"reflect"
 	"sync/atomic"
+	"time"
 )
 
 // Debug would print enquue/dequeue information
 var Debug bool
 
 const (
-	closeI = 0
-	readI  = 1
-	writeI = 2
+	timeoutI = 0
+	closeI   = 1
+	readI    = 2
+	writeI   = 3
 )
 
 // Joint connect two channel
@@ -76,7 +78,14 @@ func (j *Joint) Breakoff() {
  */
 
 func (j *Joint) transport() {
+	// add timer to prevent fatal error: all goroutines are asleep - deadlock!
+	term := time.Hour * 1
+	timer := time.NewTimer(term)
 	cases := []reflect.SelectCase{
+		{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(timer.C),
+		},
 		{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(j.breakC),
@@ -95,19 +104,29 @@ func (j *Joint) transport() {
 	var lastE, lastD interface{}
 	if Debug {
 		defer func() {
-			log.Println("[joint] exited.")
+			log.Println("[joint] Exited.")
 		}()
 	}
 	var rClosed bool
 	for {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(term)
 		if queueSize == 0 {
 			if rClosed {
 				return
 			}
 			// list is empty
-			_, recv, ok := reflect.Select(cases)
+			chosen, recv, ok := reflect.Select(cases)
 			if !ok {
 				return
+			}
+			if chosen == timeoutI {
+				continue
 			}
 			queueSize++
 			cases2[writeI].Send = recv
@@ -128,6 +147,9 @@ func (j *Joint) transport() {
 			} else {
 				chosen, recv, ok = reflect.Select(cases2)
 			}
+			if chosen == timeoutI {
+				continue
+			}
 			if chosen == writeI {
 				// write ok
 				queueSize--
@@ -146,7 +168,7 @@ func (j *Joint) transport() {
 						return
 					} else {
 						if Debug {
-							log.Println("[joint] input channel closed")
+							log.Println("[joint] Input channel closed.")
 						}
 						cases[readI].Chan = dummyC
 						cases2[readI].Chan = dummyC
