@@ -49,9 +49,10 @@ func Pipe(readC interface{}, writeC interface{}) (*Joint, error) {
 	return j, nil
 }
 
-// SetCap set max pipe buffer size
+// SetCap set max pipe buffer size, can be ajust in runtime
 func (j *Joint) SetCap(l uint64) error {
-	min := uint64(j.readC.Cap() + j.writeC.Cap() + 1)
+	chCap := uint64(j.readC.Cap() + j.writeC.Cap())
+	min := chCap + 1
 	if l < min {
 		if Debug {
 			log.Println("[joint] extend buffer size to", min)
@@ -62,7 +63,7 @@ func (j *Joint) SetCap(l uint64) error {
 	if l > max {
 		return fmt.Errorf("[joint] length should not greater than %v", max)
 	}
-	atomic.StoreUint64(&j.maxIn, l-min)
+	atomic.StoreUint64(&j.maxIn, l-chCap)
 	return nil
 }
 
