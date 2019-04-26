@@ -27,6 +27,7 @@ type Joint struct {
 	breakC        chan struct{}
 	broken        int32
 	maxIn         uint64
+	queueSize     uint64
 }
 
 // Pipe two channel
@@ -67,6 +68,16 @@ func (j *Joint) SetCap(l uint64) error {
 	return nil
 }
 
+// Len return buffer length
+func (j *Joint) Len() uint64 {
+	return j.queueSize
+}
+
+// Cap return pipe cap
+func (j *Joint) Cap() uint64 {
+	return j.maxIn
+}
+
 // Breakoff halt conjuction, drop remain data in pipe
 func (j *Joint) Breakoff() {
 	if atomic.CompareAndSwapInt32(&j.broken, 0, 1) {
@@ -105,7 +116,6 @@ func (j *Joint) transport() {
 		Dir:  reflect.SelectSend,
 		Chan: j.writeC,
 	})
-	var queueSize uint64
 	dummyC := reflect.ValueOf(make(chan struct{}, 1))
 	var lastE, lastD interface{}
 	defer func() {
@@ -123,7 +133,7 @@ func (j *Joint) transport() {
 			}
 		}
 		timer.Reset(term)
-		if queueSize == 0 {
+		if j.queueSize == 0 {
 			if rClosed {
 				return
 			}
@@ -135,7 +145,7 @@ func (j *Joint) transport() {
 			if chosen == timeoutI {
 				continue
 			}
-			queueSize++
+			j.queueSize++
 			cases2[writeI].Send = recv
 			if Debug {
 				lastE = recv.Interface()
@@ -146,7 +156,7 @@ func (j *Joint) transport() {
 			var chosen int
 			var recv reflect.Value
 			var ok bool
-			if buff := atomic.LoadUint64(&j.maxIn); queueSize >= buff {
+			if buff := atomic.LoadUint64(&j.maxIn); j.queueSize >= buff {
 				cases2[readI].Chan = dummyC
 				chosen, recv, ok = reflect.Select(cases2)
 				// restore readC
@@ -159,11 +169,11 @@ func (j *Joint) transport() {
 			}
 			if chosen == writeI {
 				// write ok
-				queueSize--
+				j.queueSize--
 				if Debug {
 					log.Printf("[joint] Dequeue %v", lastD)
 				}
-				if queueSize > 0 {
+				if j.queueSize > 0 {
 					cases2[writeI].Send, _ = j.list.pop()
 					if Debug {
 						lastD = cases2[writeI].Send.Interface()
@@ -186,7 +196,7 @@ func (j *Joint) transport() {
 				if chosen == readI {
 					// read ok
 					j.list.push(recv)
-					queueSize++
+					j.queueSize++
 					if Debug {
 						lastE = recv.Interface()
 						log.Printf("[joint] Enqueue %v", lastE)
