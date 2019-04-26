@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"reflect"
 	"sync/atomic"
 )
@@ -23,6 +24,7 @@ type Joint struct {
 	readC, writeC reflect.Value
 	breakC        chan struct{}
 	broken        int32
+	maxIn         uint64
 }
 
 // Pipe two channel
@@ -39,12 +41,30 @@ func Pipe(readC interface{}, writeC interface{}) (*Joint, error) {
 		writeC: wv,
 		breakC: make(chan struct{}, 1),
 		list:   newList(),
+		maxIn:  math.MaxUint64 - 1,
 	}
 	go j.transport()
 	return j, nil
 }
 
-// Breakoff conjuction
+// SetLength set max read buffer size
+func (j *Joint) SetLength(l uint64) error {
+	min := uint64(j.readC.Cap() + j.writeC.Cap() + 1)
+	if l < min {
+		if Debug {
+			log.Println("[joint] extend buffer size to", min)
+		}
+		l = min
+	}
+	max := uint64(math.MaxUint64 - 1)
+	if l > max {
+		return fmt.Errorf("[joint] length should not greater than %v", max)
+	}
+	atomic.StoreUint64(&j.maxIn, l-min)
+	return nil
+}
+
+// Breakoff halt conjuction, drop remain data in pipe
 func (j *Joint) Breakoff() {
 	if atomic.CompareAndSwapInt32(&j.broken, 0, 1) {
 		close(j.breakC)
@@ -71,6 +91,7 @@ func (j *Joint) transport() {
 		Chan: j.writeC,
 	})
 	var queueSize uint64
+	dummyC := reflect.ValueOf(make(chan struct{}, 1))
 	var lastE, lastD interface{}
 	if Debug {
 		defer func() {
@@ -96,7 +117,17 @@ func (j *Joint) transport() {
 				log.Printf("[joint] Enqueue %v", lastE)
 			}
 		} else {
-			chosen, recv, ok := reflect.Select(cases2)
+			var chosen int
+			var recv reflect.Value
+			var ok bool
+			if buff := atomic.LoadUint64(&j.maxIn); queueSize >= buff {
+				cases2[readI].Chan = dummyC
+				chosen, recv, ok = reflect.Select(cases2)
+				// restore readC
+				cases2[readI].Chan = j.readC
+			} else {
+				chosen, recv, ok = reflect.Select(cases2)
+			}
 			if chosen == writeI {
 				// write ok
 				queueSize--
@@ -114,9 +145,11 @@ func (j *Joint) transport() {
 					if chosen == closeI {
 						return
 					} else {
-						dumpC := reflect.ValueOf(make(chan struct{}, 1))
-						cases[readI].Chan = dumpC
-						cases2[readI].Chan = dumpC
+						if Debug {
+							log.Println("[joint] input channel closed")
+						}
+						cases[readI].Chan = dummyC
+						cases2[readI].Chan = dummyC
 						rClosed = true
 						continue
 					}
