@@ -49,8 +49,8 @@ func Pipe(readC interface{}, writeC interface{}) (*Joint, error) {
 	return j, nil
 }
 
-// SetLength set max read buffer size
-func (j *Joint) SetLength(l uint64) error {
+// SetCap set max pipe buffer size
+func (j *Joint) SetCap(l uint64) error {
 	min := uint64(j.readC.Cap() + j.writeC.Cap() + 1)
 	if l < min {
 		if Debug {
@@ -71,6 +71,11 @@ func (j *Joint) Breakoff() {
 	if atomic.CompareAndSwapInt32(&j.broken, 0, 1) {
 		close(j.breakC)
 	}
+}
+
+// DoneC return finished channel
+func (j *Joint) DoneC() <-chan struct{} {
+	return j.breakC
 }
 
 /*
@@ -102,11 +107,12 @@ func (j *Joint) transport() {
 	var queueSize uint64
 	dummyC := reflect.ValueOf(make(chan struct{}, 1))
 	var lastE, lastD interface{}
-	if Debug {
-		defer func() {
+	defer func() {
+		j.Breakoff()
+		if Debug {
 			log.Println("[joint] Exited.")
-		}()
-	}
+		}
+	}()
 	var rClosed bool
 	for {
 		if !timer.Stop() {
