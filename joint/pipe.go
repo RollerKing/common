@@ -14,20 +14,21 @@ import (
 var Debug bool
 
 const (
-	timeoutI = 0
-	closeI   = 1
-	readI    = 2
-	writeI   = 3
+	reloadI = iota
+	timeoutI
+	closeI
+	readI
+	writeI
 )
 
 // Joint connect two channel
 type Joint struct {
-	list          *linkedList
-	readC, writeC reflect.Value
-	breakC        chan struct{}
-	broken        int32
-	maxIn         uint64
-	queueSize     uint64
+	list            *linkedList
+	readC, writeC   reflect.Value
+	breakC, reloadC chan struct{}
+	broken          int32
+	maxIn           uint64
+	queueSize       uint64
 }
 
 // Pipe two channel
@@ -40,11 +41,12 @@ func Pipe(readC interface{}, writeC interface{}) (*Joint, error) {
 		return nil, err
 	}
 	j := &Joint{
-		readC:  rv,
-		writeC: wv,
-		breakC: make(chan struct{}, 1),
-		list:   newList(),
-		maxIn:  math.MaxUint64 - 1,
+		readC:   rv,
+		writeC:  wv,
+		breakC:  make(chan struct{}, 1),
+		reloadC: make(chan struct{}, 1),
+		list:    newList(),
+		maxIn:   math.MaxUint64 - 1,
 	}
 	go j.transport()
 	return j, nil
@@ -64,7 +66,10 @@ func (j *Joint) SetCap(l uint64) error {
 	if l > max {
 		return fmt.Errorf("[joint] length should not greater than %v", max)
 	}
-	atomic.StoreUint64(&j.maxIn, l-chCap)
+	maxIn := atomic.LoadUint64(&j.maxIn)
+	if maxIn != l-chCap && atomic.LoadInt32(&j.broken) == 0 && atomic.CompareAndSwapUint64(&j.maxIn, maxIn, l-chCap) {
+		j.reloadC <- struct{}{}
+	}
 	return nil
 }
 
@@ -82,6 +87,7 @@ func (j *Joint) Cap() uint64 {
 func (j *Joint) Breakoff() {
 	if atomic.CompareAndSwapInt32(&j.broken, 0, 1) {
 		close(j.breakC)
+		close(j.reloadC)
 	}
 }
 
@@ -99,6 +105,10 @@ func (j *Joint) transport() {
 	term := time.Hour * 1
 	timer := time.NewTimer(term)
 	cases := []reflect.SelectCase{
+		{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(j.reloadC), // reload channel
+		},
 		{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(timer.C),
@@ -142,7 +152,7 @@ func (j *Joint) transport() {
 			if !ok {
 				return
 			}
-			if chosen == timeoutI {
+			if chosen == timeoutI || chosen == reloadI {
 				continue
 			}
 			j.queueSize++
@@ -164,7 +174,7 @@ func (j *Joint) transport() {
 			} else {
 				chosen, recv, ok = reflect.Select(cases2)
 			}
-			if chosen == timeoutI {
+			if chosen == timeoutI || chosen == reloadI {
 				continue
 			}
 			if chosen == writeI {

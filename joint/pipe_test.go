@@ -133,3 +133,56 @@ func TestBlocked(t *testing.T) {
 	case <-time.After(time.Millisecond):
 	}
 }
+
+func TestDynamicCap(t *testing.T) {
+	in, out := make(chan int), make(chan int)
+	pipe, err := Pipe(in, out)
+	if err != nil {
+		t.Fatalf("create pipe %v", err)
+	}
+	defer pipe.Breakoff()
+	cap := 5
+	if err = pipe.SetCap(uint64(cap)); err != nil {
+		t.Fatalf("set cap fail %v", err)
+	}
+	for i := 0; i < cap; i++ {
+		in <- i
+	}
+	select {
+	case in <- 100:
+		t.Fatal("should blocked")
+	case <-time.After(time.Millisecond):
+	}
+	// drain out
+	for i := 0; i < cap; i++ {
+		<-out
+	}
+	cap = 3
+	if err = pipe.SetCap(uint64(cap)); err != nil {
+		t.Fatalf("set cap fail %v", err)
+	}
+	for i := 0; i < cap; i++ {
+		in <- i
+	}
+	select {
+	case in <- 100:
+		t.Fatal("should blocked")
+	case <-time.After(time.Millisecond):
+	}
+	bigCap := 20
+	if err = pipe.SetCap(uint64(bigCap)); err != nil {
+		t.Fatalf("set cap fail %v", err)
+	}
+	for i := 0; i < bigCap-cap; i++ {
+		select {
+		case in <- i:
+		case <-time.After(time.Millisecond):
+			t.Fatal("should not blocked")
+		}
+	}
+	select {
+	case in <- 100:
+		t.Fatal("should blocked")
+	case <-time.After(time.Millisecond):
+	}
+}
