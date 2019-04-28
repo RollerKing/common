@@ -339,20 +339,24 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 	if val.Type().Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
-	getKeyFunc := func(f reflect.StructField) (name string, omitempty bool) {
+	getKeyFunc := func(f reflect.StructField) (name string, omitempty bool, drop bool) {
 		for _, tag := range tagName {
 			if tag != "" {
 				if arr := strings.SplitN(f.Tag.Get(tag), ",", 2); len(arr) > 0 && arr[0] != "" {
 					name = arr[0]
 					omitempty = strings.Contains(f.Tag.Get(tag), ",omitempty")
+					drop = name == "-"
 					return
 				}
 			}
 		}
-		return f.Name, false
+		return f.Name, false, false
 	}
 	for i := 0; i < val.Type().NumField(); i++ {
-		name, omitempty := getKeyFunc(val.Type().Field(i))
+		name, omitempty, dropField := getKeyFunc(val.Type().Field(i))
+		if dropField {
+			continue
+		}
 		field := val.Field(i)
 		kind := field.Kind()
 		isPtr := field.Type().Kind() == reflect.Ptr
@@ -369,6 +373,9 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 			field = field.Elem()
 			kind = field.Kind()
 		}
+		if omitempty && isZeroValue(field.Type(), field, false) {
+			continue
+		}
 		switch kind {
 		case reflect.Slice:
 			list := make([]interface{}, field.Len())
@@ -378,7 +385,7 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 					iv = iv.Elem()
 				}
 				if iv.Kind() == reflect.Struct && iv.Type().String() != "time.Time" {
-					list[j] = Struct2Map(iv.Interface())
+					list[j] = Struct2Map(iv.Interface(), tagName...)
 				} else {
 					list[j] = iv.Interface()
 				}
@@ -388,7 +395,7 @@ func Struct2Map(obj interface{}, tagName ...string) map[string]interface{} {
 			if field.Type().String() == "time.Time" {
 				res[name] = field.Interface()
 			} else {
-				sub := Struct2Map(field.Interface())
+				sub := Struct2Map(field.Interface(), tagName...)
 				if val.Type().Field(i).Anonymous {
 					for k, v := range sub {
 						res[k] = v
