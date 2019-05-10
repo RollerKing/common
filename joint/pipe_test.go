@@ -186,3 +186,47 @@ func TestDynamicCap(t *testing.T) {
 	case <-time.After(time.Millisecond):
 	}
 }
+
+func TestFilter(t *testing.T) {
+	in, out := make(chan int), make(chan int)
+	pipe, err := Pipe(in, out)
+	if err != nil {
+		t.Fatalf("create pipe %v", err)
+	}
+	defer pipe.Breakoff()
+	pipe.SetFilter(func(v interface{}) bool {
+		num := v.(int)
+		return num >= 100
+	})
+	data := []int{1, 2, 100, 200, 300, 50, 20, 500, 20, 101, 200}
+	validData := make(map[int]int)
+	var total int
+	for _, v := range data {
+		if v >= 100 {
+			validData[v]++
+			total++
+		}
+		in <- v
+	}
+	for i := 0; i < total; i++ {
+		outv := <-out
+		t.Logf("TestFilter get %d", outv)
+		if _, ok := validData[outv]; !ok {
+			t.Fatalf("should not get %v", outv)
+		}
+		validData[outv]--
+	}
+	select {
+	case <-out:
+		t.Fatal("should blocked")
+	case <-time.After(time.Millisecond):
+	}
+	if pipe.Len() != 0 {
+		t.Fatal("should be empty")
+	}
+	for k, cnt := range validData {
+		if cnt != 0 {
+			t.Fatalf("lost %d", k)
+		}
+	}
+}

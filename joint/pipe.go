@@ -21,6 +21,9 @@ const (
 	writeI
 )
 
+// PipeFilter filter data
+type PipeFilter func(interface{}) bool
+
 // Joint connect two channel
 type Joint struct {
 	list            *linkedList
@@ -29,6 +32,7 @@ type Joint struct {
 	broken          int32
 	maxIn           uint64
 	queueSize       uint64
+	filter          PipeFilter
 }
 
 // Pipe two channel
@@ -50,6 +54,11 @@ func Pipe(readC interface{}, writeC interface{}) (*Joint, error) {
 	}
 	go j.transport()
 	return j, nil
+}
+
+// SetFilter of pipe
+func (j *Joint) SetFilter(f PipeFilter) {
+	j.filter = f
 }
 
 // SetCap set max pipe buffer size, can be ajust in runtime
@@ -155,6 +164,11 @@ func (j *Joint) transport() {
 			if chosen == timeoutI || chosen == reloadI {
 				continue
 			}
+			dataVal := recv.Interface()
+			// drop data by filter
+			if j.filter != nil && !j.filter(dataVal) {
+				continue
+			}
 			j.queueSize++
 			cases2[writeI].Send = recv
 			if Debug {
@@ -183,10 +197,16 @@ func (j *Joint) transport() {
 				if Debug {
 					log.Printf("[joint] Dequeue %v", lastD)
 				}
-				if j.queueSize > 0 {
-					cases2[writeI].Send, _ = j.list.pop()
-					if Debug {
-						lastD = cases2[writeI].Send.Interface()
+				for j.queueSize > 0 {
+					val, _ := j.list.pop()
+					if j.filter != nil && !j.filter(val.Interface()) {
+						j.queueSize--
+					} else {
+						cases2[writeI].Send = val
+						if Debug {
+							lastD = val.Interface()
+						}
+						break
 					}
 				}
 			} else {
