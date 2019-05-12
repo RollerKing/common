@@ -2,15 +2,11 @@ package election
 
 import (
 	"fmt"
-	"github.com/qjpcpu/log"
 	"time"
 )
 
 // Example for ha
 func Example() {
-	// close log for better fmt.Println
-	log.GetBuilder().SetTypedLevel(log.CRITICAL).Submit()
-
 	finishExampleC := make(chan struct{}, 1)
 	var commonEtcdKey = "/share-key"
 	endpoints := []string{"127.0.0.1:2379"}

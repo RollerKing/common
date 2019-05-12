@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/qjpcpu/log"
+	"log"
+	"os"
+	"sync/atomic"
+
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/mvcc/mvccpb"
-	"os"
-	"sync/atomic"
 )
 
 type Role int
@@ -30,6 +31,7 @@ type HA struct {
 	roleC     chan Role
 	stopC     chan struct{}
 	isStopped int32
+	logger    Logger
 }
 
 // New new ha
@@ -41,7 +43,16 @@ func New(endpoints []string, key string) *HA {
 		ttl:       30,
 		roleC:     make(chan Role, 1),
 		stopC:     make(chan struct{}, 1),
+		logger:    NullLogger{},
 	}
+}
+
+// SetLogger logger
+func (h *HA) SetLogger(l Logger) *HA {
+	if l != nil {
+		h.logger = l
+	}
+	return h
 }
 
 // TTL set ttl
@@ -77,7 +88,7 @@ func (h *HA) Start() error {
 	}
 	cli, err := clientv3.New(clientv3.Config{Endpoints: h.endpoints})
 	if err != nil {
-		log.Errorf("[election]%v", err)
+		h.logger.Errorf("[election]%v", err)
 		return err
 	}
 	defer cli.Close()
@@ -98,14 +109,14 @@ func (h *HA) notifyState(state Role) {
 	if h.last != state {
 		h.roleC <- state
 		h.last = state
-		log.Debugf("[election]switch to %s", state.String())
+		h.logger.Debugf("[election]switch to %s", state.String())
 	}
 }
 
 func (h *HA) startSession(cli *clientv3.Client) {
 	session, err := concurrency.NewSession(cli, concurrency.WithTTL(h.ttl))
 	if err != nil {
-		log.Errorf("[election]create session fail:%v", err)
+		h.logger.Errorf("[election]create session fail:%v", err)
 		return
 	}
 	defer session.Close()
@@ -117,25 +128,25 @@ func (h *HA) startSession(cli *clientv3.Client) {
 	elec := concurrency.NewElection(session, h.keyPrefix)
 	for {
 		if err := elec.Campaign(context.Background(), val); err != nil {
-			log.Errorf("[election]campaign fail:%v", err)
+			h.logger.Errorf("[election]campaign fail:%v", err)
 			h.notifyState(Candidate)
 			continue
 		}
 		lderVal, err := elec.Leader(context.Background())
 		if err != nil {
-			log.Errorf("[election]get leader key fail:%v", err)
+			h.logger.Errorf("[election]get leader key fail:%v", err)
 			h.notifyState(Candidate)
 			continue
 		}
 		if len(lderVal.Kvs) == 0 {
-			log.Error("[election]get empty leader key")
+			h.logger.Error("[election]get empty leader key")
 			h.notifyState(Candidate)
 			continue
 		}
 		lderKey := string(lderVal.Kvs[0].Key)
 		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		log.Debugf("[election]start watch key %s", lderKey)
+		h.logger.Debugf("[election]start watch key %s", lderKey)
 		wch := cli.Watch(cctx, lderKey, clientv3.WithRev(lderVal.Header.GetRevision()))
 		h.notifyState(Leader)
 		for {
@@ -148,7 +159,7 @@ func (h *HA) startSession(cli *clientv3.Client) {
 			case wr := <-wch:
 				for _, ev := range wr.Events {
 					if ev.Type == mvccpb.DELETE {
-						log.Debugf("[election] %s is lost unexpected, so resign myself", lderKey)
+						h.logger.Debugf("[election] %s is lost unexpected, so resign myself", lderKey)
 						elec.Resign(context.Background())
 						return
 					}
@@ -167,4 +178,45 @@ func (r Role) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+type Logger interface {
+	Debugf(string, ...interface{})
+	Debug(...interface{})
+	Infof(string, ...interface{})
+	Info(...interface{})
+	Errorf(string, ...interface{})
+	Error(...interface{})
+}
+
+// NullLogger drop all log
+type NullLogger struct{}
+
+func (null NullLogger) Debugf(f string, v ...interface{}) {}
+func (null NullLogger) Debug(v ...interface{})            {}
+func (null NullLogger) Infof(f string, v ...interface{})  {}
+func (null NullLogger) Info(v ...interface{})             {}
+func (null NullLogger) Errorf(f string, v ...interface{}) {}
+func (null NullLogger) Error(v ...interface{})            {}
+
+// StdLogger stderr log
+type StdLogger struct{}
+
+func (sl StdLogger) Debugf(f string, v ...interface{}) {
+	log.Printf(f+"\n", v...)
+}
+func (sl StdLogger) Debug(v ...interface{}) {
+	log.Println(v...)
+}
+func (sl StdLogger) Infof(f string, v ...interface{}) {
+	log.Printf(f+"\n", v...)
+}
+func (sl StdLogger) Info(v ...interface{}) {
+	log.Println(v...)
+}
+func (sl StdLogger) Errorf(f string, v ...interface{}) {
+	log.Printf(f+"\n", v...)
+}
+func (sl StdLogger) Error(v ...interface{}) {
+	log.Println(v...)
 }
