@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"sync/atomic"
-
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/clientv3/concurrency"
 	"go.etcd.io/etcd/mvcc/mvccpb"
+	"log"
+	"os"
+	"sync"
+	"sync/atomic"
 )
 
 type Role int
@@ -32,6 +32,7 @@ type HA struct {
 	stopC     chan struct{}
 	isStopped int32
 	logger    Logger
+	wg        *sync.WaitGroup
 }
 
 // New new ha
@@ -44,6 +45,7 @@ func New(endpoints []string, key string) *HA {
 		roleC:     make(chan Role, 1),
 		stopC:     make(chan struct{}, 1),
 		logger:    NullLogger{},
+		wg:        new(sync.WaitGroup),
 	}
 }
 
@@ -80,6 +82,9 @@ func (h *HA) RoleC() <-chan Role {
 
 // Start start ha
 func (h *HA) Start() error {
+	if h.isStopped == 1 {
+		return errors.New("already stopped")
+	}
 	if len(h.endpoints) == 0 {
 		return errors.New("no endpoints")
 	}
@@ -92,6 +97,8 @@ func (h *HA) Start() error {
 		return err
 	}
 	defer cli.Close()
+	h.wg.Add(1)
+	defer h.wg.Done()
 	for h.isStopped == 0 {
 		h.startSession(cli)
 	}
@@ -102,6 +109,7 @@ func (h *HA) Start() error {
 func (h *HA) Stop() {
 	if atomic.CompareAndSwapInt32(&h.isStopped, 0, 1) {
 		close(h.stopC)
+		h.wg.Wait()
 	}
 }
 
