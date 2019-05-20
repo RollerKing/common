@@ -1,8 +1,11 @@
 package crumbs
 
 import (
+	"math/rand"
+	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 // 求交集
@@ -174,6 +177,42 @@ func IsDigit(str string) bool {
 		}
 	}
 	return true
+}
+
+// 打乱数组
+func ChaosArrays(arrays ...interface{}) {
+	if len(arrays) == 0 {
+		panic("no input")
+	}
+	var size int
+	for _, array := range arrays {
+		val := reflect.ValueOf(array)
+		if size == 0 {
+			size = val.Len()
+		} else if size != val.Len() {
+			panic("all array length should be equals")
+		}
+		if val.Kind() != reflect.Array && val.Kind() != reflect.Slice {
+			panic("input parameters should be array")
+		}
+	}
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := 0; i < size-1; i++ {
+		n := r.Intn(100) % (size - i - 1)
+		for j := range arrays {
+			exchangeArrayElem(arrays[j], size-i-1, n)
+		}
+	}
+}
+
+func exchangeArrayElem(array interface{}, i, j int) {
+	if i == j {
+		return
+	}
+	val := reflect.ValueOf(array)
+	a, b := val.Index(i).Interface(), val.Index(j).Interface()
+	val.Index(j).Set(reflect.ValueOf(a))
+	val.Index(i).Set(reflect.ValueOf(b))
 }
 
 // below are helpers
