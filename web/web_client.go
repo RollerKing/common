@@ -140,8 +140,8 @@ func (c *HttpClient) Inspect(data httpclient.TraceData) {
 }
 
 // Get get url
-func (c *HttpClient) Get(uri string) (res []byte, err error) {
-	return httpclient.Get(c, uri, c.genHeaders())
+func (c *HttpClient) Get(uri string, extraHeaders ...httpclient.Header) (res []byte, err error) {
+	return httpclient.Get(c, uri, c.genHeaders(extraHeaders...))
 }
 
 // GetWithParams with qs
