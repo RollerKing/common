@@ -145,8 +145,8 @@ func (c *HttpClient) Get(uri string) (res []byte, err error) {
 }
 
 // GetWithParams with qs
-func (c *HttpClient) GetWithParams(uri string, params interface{}) (res []byte, err error) {
-	return httpclient.GetWithParams(c, uri, params, c.genHeaders())
+func (c *HttpClient) GetWithParams(uri string, params interface{}, extraHeaders ...httpclient.Header) (res []byte, err error) {
+	return httpclient.GetWithParams(c, uri, params, c.genHeaders(extraHeaders...))
 }
 
 // Post data
