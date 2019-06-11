@@ -1,13 +1,16 @@
 package json
 
 import (
-	"bufio"
 	"bytes"
 	sysjson "encoding/json"
+
+	"github.com/json-iterator/go"
 	"github.com/qjpcpu/go-prettyjson"
 )
 
 type RawMessage = sysjson.RawMessage
+
+var jiter = jsoniter.ConfigFastest
 
 // PrettyMarshal colorful json
 func PrettyMarshal(v interface{}) []byte {
@@ -17,29 +20,12 @@ func PrettyMarshal(v interface{}) []byte {
 
 // Marshal disable html escape
 func Marshal(v interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	writer := bufio.NewWriter(&buf)
-	encoder := sysjson.NewEncoder(writer)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(v); err != nil {
-		return nil, err
-	}
-	if err := writer.Flush(); err != nil {
-		return nil, err
-	}
-	data := buf.Bytes()
-	// drop extra \n byte
-	if size := len(data); size > 0 && data[size-1] == byte(10) {
-		data = data[:size-1]
-	}
-	return data, nil
+	return jiter.Marshal(v)
 }
 
 // Unmarshal same as sys unmarshal
 func Unmarshal(data []byte, v interface{}) error {
-	decoder := sysjson.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-	return decoder.Decode(v)
+	return jiter.Unmarshal(data, v)
 }
 
 // MustMarshal must marshal successful
