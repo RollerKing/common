@@ -15,13 +15,15 @@ const (
 	ExampleTag = "example"
 )
 
+var MaxLevel = 10
+
 // FillStruct 填充结构体,obj必须为指针
 func FillStruct(obj interface{}) error {
 	stype := reflect.TypeOf(obj)
 	if stype.Kind() != reflect.Ptr {
 		return errors.New("should be pointer")
 	}
-	initializeVal(stype.Elem(), reflect.ValueOf(obj).Elem())
+	initializeVal(stype.Elem(), reflect.ValueOf(obj).Elem(), MaxLevel)
 	return nil
 }
 
@@ -47,7 +49,7 @@ func newStruct(stype reflect.Type) reflect.Value {
 		stype = stype.Elem()
 	}
 	valPtr := reflect.New(stype)
-	initializeVal(stype, valPtr.Elem())
+	initializeVal(stype, valPtr.Elem(), MaxLevel)
 	return valPtr
 }
 
@@ -55,7 +57,10 @@ func isExported(fieldName string) bool {
 	return len(fieldName) > 0 && (fieldName[0] >= 'A' && fieldName[0] <= 'Z')
 }
 
-func initializeStruct(t reflect.Type, v reflect.Value) {
+func initializeStruct(t reflect.Type, v reflect.Value, level int) {
+	if level <= 0 {
+		return
+	}
 	for i := 0; i < v.NumField(); i++ {
 		f := v.Field(i)
 		ft := t.Field(i)
@@ -68,10 +73,10 @@ func initializeStruct(t reflect.Type, v reflect.Value) {
 		}
 		if ft.Type.Kind() == reflect.Ptr {
 			fv := reflect.New(ft.Type.Elem())
-			initializeVal(ft.Type.Elem(), fv.Elem(), examples...)
+			initializeVal(ft.Type.Elem(), fv.Elem(), level-1, examples...)
 			f.Set(fv)
 		} else {
-			initializeVal(ft.Type, f, examples...)
+			initializeVal(ft.Type, f, level-1, examples...)
 		}
 	}
 }
@@ -88,7 +93,7 @@ func removeString(list []string, str string) []string {
 	return list[:len(list)-offset]
 }
 
-func initializeSlice(t reflect.Type, elemt reflect.Type, example ...string) reflect.Value {
+func initializeSlice(t reflect.Type, elemt reflect.Type, level int, example ...string) reflect.Value {
 	size := maxSliceLen
 	if len(example) > 0 {
 		list := removeString(strings.Split(example[0], ","), "")
@@ -97,18 +102,21 @@ func initializeSlice(t reflect.Type, elemt reflect.Type, example ...string) refl
 		}
 	}
 	slicev := reflect.MakeSlice(t, size, size)
+	if level <= 0 {
+		return slicev
+	}
 	if elemt.Kind() == reflect.Ptr {
 		if supportExample(elemt.Elem()) && len(example) > 0 {
 			list := removeString(strings.Split(example[0], ","), "")
 			for i := 0; i < len(list); i++ {
 				ele := reflect.New(elemt.Elem())
-				initializeVal(ele.Elem().Type(), ele.Elem(), list[i])
+				initializeVal(ele.Elem().Type(), ele.Elem(), level-1, list[i])
 				slicev.Index(i).Set(ele)
 			}
 		} else {
 			for i := 0; i < size; i++ {
 				ele := reflect.New(elemt.Elem())
-				initializeVal(ele.Elem().Type(), ele.Elem())
+				initializeVal(ele.Elem().Type(), ele.Elem(), level-1)
 				slicev.Index(i).Set(ele)
 			}
 		}
@@ -117,13 +125,13 @@ func initializeSlice(t reflect.Type, elemt reflect.Type, example ...string) refl
 			list := removeString(strings.Split(example[0], ","), "")
 			for i := 0; i < len(list); i++ {
 				ele := reflect.New(elemt)
-				initializeVal(elemt, ele.Elem(), list[i])
+				initializeVal(elemt, ele.Elem(), level-1, list[i])
 				slicev.Index(i).Set(ele.Elem())
 			}
 		} else {
 			for i := 0; i < size; i++ {
 				ele := reflect.New(elemt)
-				initializeVal(elemt, ele.Elem())
+				initializeVal(elemt, ele.Elem(), level-1)
 				slicev.Index(i).Set(ele.Elem())
 			}
 		}
@@ -140,34 +148,40 @@ func supportExample(t reflect.Type) bool {
 	}
 }
 
-func initializeMap(tk, tv reflect.Type, mapv reflect.Value) {
+func initializeMap(tk, tv reflect.Type, mapv reflect.Value, level int) {
+	if level <= 0 {
+		return
+	}
 	for i := 0; i < maxMapLen; i++ {
 		//key
 		var key, val reflect.Value
 		if tk.Kind() == reflect.Ptr {
 			kptr := reflect.New(tk.Elem())
-			initializeVal(kptr.Elem().Type(), kptr.Elem())
+			initializeVal(kptr.Elem().Type(), kptr.Elem(), level-1)
 			key = kptr
 		} else {
 			kptr := reflect.New(tk)
-			initializeVal(tk, kptr.Elem())
+			initializeVal(tk, kptr.Elem(), level-1)
 			key = kptr.Elem()
 		}
 		// value
 		if tv.Kind() == reflect.Ptr {
 			vptr := reflect.New(tv.Elem())
-			initializeVal(vptr.Elem().Type(), vptr.Elem())
+			initializeVal(vptr.Elem().Type(), vptr.Elem(), level-1)
 			val = vptr
 		} else {
 			vptr := reflect.New(tv)
-			initializeVal(tv, vptr.Elem())
+			initializeVal(tv, vptr.Elem(), level-1)
 			val = vptr.Elem()
 		}
 		mapv.SetMapIndex(key, val)
 	}
 }
 
-func initializeVal(t reflect.Type, v reflect.Value, examples ...string) {
+func initializeVal(t reflect.Type, v reflect.Value, level int, examples ...string) {
+	if level <= 0 {
+		return
+	}
 	switch t.Kind() {
 	case reflect.String:
 		if len(examples) > 0 {
@@ -234,18 +248,18 @@ func initializeVal(t reflect.Type, v reflect.Value, examples ...string) {
 		if t.String() == "time.Time" {
 			v.Set(reflect.ValueOf(time.Now()))
 		} else {
-			initializeStruct(t, v)
+			initializeStruct(t, v, level-1)
 		}
 	case reflect.Ptr:
 		fv := reflect.New(t)
-		initializeVal(t.Elem(), fv.Elem())
+		initializeVal(t.Elem(), fv.Elem(), level)
 		v.Set(fv)
 	case reflect.Map:
 		hash := reflect.MakeMap(t)
-		initializeMap(t.Key(), t.Elem(), hash)
+		initializeMap(t.Key(), t.Elem(), hash, level-1)
 		v.Set(hash)
 	case reflect.Slice:
-		array := initializeSlice(t, v.Type().Elem(), examples...)
+		array := initializeSlice(t, v.Type().Elem(), level-1, examples...)
 		v.Set(array)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
