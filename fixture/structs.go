@@ -252,7 +252,7 @@ func initializeVal(t reflect.Type, v reflect.Value, level int, examples ...strin
 		}
 	case reflect.Ptr:
 		fv := reflect.New(t)
-		initializeVal(t.Elem(), fv.Elem(), level)
+		initializeVal(t.Elem(), fv.Elem(), level-1)
 		v.Set(fv)
 	case reflect.Map:
 		hash := reflect.MakeMap(t)
