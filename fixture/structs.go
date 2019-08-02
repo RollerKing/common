@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// Option for fill
-type Option struct {
+// option for fill
+type option struct {
 	MaxLevel        int
 	MaxSliceLen     int
 	MaxMapLen       int
@@ -19,14 +19,15 @@ type Option struct {
 }
 
 // OptionFunc option
-type OptionFunc func(*Option)
+type OptionFunc func(*option)
 
 // PathToValueFunc path to value
 type PathToValueFunc func(string, reflect.Type) (interface{}, bool)
 
+// MapKey of map mark
 const MapKey = "$$KEY"
 
-// FillStruct 填充结构体,obj必须为指针
+// FillStruct fill struct, obj must be pointer
 func FillStruct(obj interface{}, optF ...OptionFunc) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -41,23 +42,51 @@ func FillStruct(obj interface{}, optF ...OptionFunc) (err error) {
 	for _, fn := range optF {
 		fn(&opt)
 	}
-	f := &filler{Option: &opt}
+	f := &filler{option: &opt}
 	f.initializeVal([]string{}, stype.Elem(), reflect.ValueOf(obj).Elem(), opt.MaxLevel)
 	return
 }
 
-// WrapWithSysPVFunc disclose
-func WrapWithSysPVFunc(fn PathToValueFunc) PathToValueFunc {
-	return func(p string, t reflect.Type) (interface{}, bool) {
+// SetMaxLevel dfs depth
+func SetMaxLevel(lvl int) OptionFunc {
+	return func(opt *option) {
+		opt.MaxLevel = lvl
+	}
+}
+
+// SetMaxSliceLen slice size
+func SetMaxSliceLen(size int) OptionFunc {
+	return func(opt *option) {
+		opt.MaxSliceLen = size
+	}
+}
+
+// SetMaxMapLen map size
+func SetMaxMapLen(size int) OptionFunc {
+	return func(opt *option) {
+		opt.MaxMapLen = size
+	}
+}
+
+// SetPathToValueFunc customize path to value function
+func SetPathToValueFunc(fn PathToValueFunc) OptionFunc {
+	return func(opt *option) {
+		opt.PathToValueFunc = fn
+	}
+}
+
+// WithSysPVFunc disclose
+func WithSysPVFunc(fn PathToValueFunc) OptionFunc {
+	return SetPathToValueFunc(func(p string, t reflect.Type) (interface{}, bool) {
 		v, ok := fn(p, t)
 		if !ok {
 			return defaultPathToValueFunc(p, t)
 		}
 		return v, ok
-	}
+	})
 }
 
-func (filler *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Value, level int) {
+func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Value, level int) {
 	if level < 0 {
 		return
 	}
@@ -76,10 +105,10 @@ func (filler *filler) initializeStruct(steps []string, t reflect.Type, v reflect
 		}
 		if ft.Type.Kind() == reflect.Ptr {
 			fv := reflect.New(ft.Type.Elem())
-			filler.initializeVal(appendStep(steps, ft.Name), ft.Type.Elem(), fv.Elem(), level-1+offset)
+			fl.initializeVal(appendStep(steps, ft.Name), ft.Type.Elem(), fv.Elem(), level-1+offset)
 			f.Set(fv)
 		} else {
-			filler.initializeVal(appendStep(steps, ft.Name), ft.Type, f, level-1+offset)
+			fl.initializeVal(appendStep(steps, ft.Name), ft.Type, f, level-1+offset)
 		}
 	}
 }
@@ -106,7 +135,7 @@ func removeString(list []string, str string) []string {
 func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.Type, level int) reflect.Value {
 	size := fl.MaxSliceLen
 	slicev := reflect.MakeSlice(t, size, size)
-	if level <= 0 {
+	if level < 0 {
 		return slicev
 	}
 	if elemt.Kind() == reflect.Ptr {
@@ -256,7 +285,7 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 			}
 		}
 	case reflect.Slice:
-		if level > 0 {
+		if level >= 0 {
 			array := fl.initializeSlice(steps, t, v.Type().Elem(), level)
 			v.Set(array)
 		}
@@ -276,10 +305,12 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 */
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
 
+// REmail random email
 func REmail() string {
 	return randomString() + "@fixture.com"
 }
 
+// RMobile random mobile
 func RMobile() string {
 	data := md5.Sum([]byte(fmt.Sprintf("%v:%v:%v", time.Now(), time.Now().Nanosecond(), r.Float32())))
 	m := make([]byte, 0, 11)
@@ -296,6 +327,7 @@ func RMobile() string {
 
 }
 
+// RLink random link
 func RLink() string {
 	l := "http://www.fixture.com"
 	size := r.Int()%4 + 1
@@ -305,14 +337,17 @@ func RLink() string {
 	return l
 }
 
+// RNumber random number
 func RNumber(left, right int64) int64 {
 	return left + r.Int63n(right-left)
 }
 
+// RTimestamp random unix timestamp
 func RTimestamp() int64 {
 	return time.Now().Unix()
 }
 
+// RString random string
 func RString() string {
 	return randomString()
 }
@@ -321,6 +356,7 @@ func randomString() string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%v:%v:%v", time.Now(), time.Now().Nanosecond(), r.Float32()))))[:8]
 }
 
+// IsIntegerType is integer
 func IsIntegerType(tp reflect.Type) bool {
 	switch tp.Kind() {
 	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8:
@@ -329,6 +365,7 @@ func IsIntegerType(tp reflect.Type) bool {
 	return false
 }
 
+// IsUnsignIntegerType is unsign integer
 func IsUnsignIntegerType(tp reflect.Type) bool {
 	switch tp.Kind() {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
@@ -337,14 +374,17 @@ func IsUnsignIntegerType(tp reflect.Type) bool {
 	return false
 }
 
+// IsFloatType is float
 func IsFloatType(tp reflect.Type) bool {
 	return tp.Kind() == reflect.Float32 || tp.Kind() == reflect.Float64
 }
 
+// IsTimeType is time.Time
 func IsTimeType(tp reflect.Type) bool {
 	return tp == reflect.TypeOf(time.Time{})
 }
 
+// IsStringType is string
 func IsStringType(tp reflect.Type) bool {
 	return tp.Kind() == reflect.String
 }
@@ -355,7 +395,7 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	switch {
 	case strings.Contains(finalNode, "email"):
 		return REmail(), true
-	case strings.Contains(finalNode, "link"):
+	case strings.Contains(finalNode, "link") || strings.Contains(finalNode, "url"):
 		return RLink(), true
 	case strings.Contains(finalNode, "id"):
 		if IsIntegerType(tp) {
@@ -385,8 +425,8 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	return "", false
 }
 
-func defaultOpt() Option {
-	return Option{
+func defaultOpt() option {
+	return option{
 		MaxLevel:        10,
 		MaxMapLen:       2,
 		MaxSliceLen:     3,
@@ -395,7 +435,7 @@ func defaultOpt() Option {
 }
 
 type filler struct {
-	*Option
+	*option
 }
 
 func isExported(fieldName string) bool {
