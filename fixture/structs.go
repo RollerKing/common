@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -103,7 +104,7 @@ func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Val
 			if ok {
 				if vv != nilValue {
 					fv := reflect.New(ft.Type.Elem())
-					fv.Elem().Set(vv)
+					setContainerValue(fv.Elem(), vv)
 					f.Set(fv)
 				}
 			} else {
@@ -129,7 +130,7 @@ func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.
 			if ok {
 				if vv != nilValue {
 					ele := reflect.New(elemt.Elem())
-					ele.Elem().Set(vv)
+					setContainerValue(ele.Elem(), vv)
 					slicev.Index(i).Set(ele)
 				}
 			} else {
@@ -159,7 +160,7 @@ func (fl *filler) initializeArray(steps []string, elemt reflect.Type, arrayv ref
 			if ok {
 				if vv != nilValue {
 					ele := reflect.New(elemt.Elem())
-					ele.Elem().Set(vv)
+					setContainerValue(ele.Elem(), vv)
 					arrayv.Index(i).Set(ele)
 				}
 			} else {
@@ -200,7 +201,7 @@ func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflec
 			if ok {
 				if vv != nilValue {
 					vptr := reflect.New(tv.Elem())
-					vptr.Set(vv)
+					setContainerValue(vptr, vv)
 					val = vptr
 				}
 			} else {
@@ -364,7 +365,7 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 	case reflect.Interface:
 		if vv, ok := fl.getPathValue(steps, t); ok {
 			if vv != nilValue {
-				v.Set(vv)
+				setContainerValue(v, vv)
 			}
 		} else {
 			v.Set(reflect.ValueOf("DYNAMIC"))
@@ -473,10 +474,13 @@ func IsRefType(tp reflect.Type) bool {
 	return kd == reflect.Slice || kd == reflect.Map || kd == reflect.Ptr || kd == reflect.Interface || kd == reflect.Func || kd == reflect.Chan || kd == reflect.UnsafePointer
 }
 func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
+	if tp.Kind() == reflect.Ptr {
+		tp = tp.Elem()
+	}
 	list := strings.Split(path, ".")
 	finalNode := strings.ToLower(list[len(list)-1])
 	switch {
-	case strings.Contains(finalNode, "email"):
+	case strings.Contains(finalNode, "email") && IsStringType(tp):
 		return REmail(), true
 	case strings.Contains(finalNode, "link") || strings.Contains(finalNode, "url"):
 		return RLink(), true
@@ -484,19 +488,20 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 		if IsIntegerType(tp) {
 			return RNumber(time.Now().AddDate(0, -1, 0).Unix(), time.Now().Unix()), true
 		} else if IsStringType(tp) {
-			return RString(), true
+			n := RNumber(time.Now().AddDate(0, -1, 0).Unix(), time.Now().Unix())
+			return strconv.FormatInt(n, 10), true
 		}
 	case finalNode == "status":
 		if IsIntegerType(tp) {
 			return 1, true
 		} else if IsUnsiginedIntegerType(tp) {
-			return uint(1), true
+			return uint8(1), true
 		}
 	case strings.Contains(finalNode, "num") && IsIntegerType(tp):
 		return RNumber(1, 1000), true
 	case strings.Contains(finalNode, "phone") && IsStringType(tp):
 		return RMobile(), true
-	case strings.Contains(finalNode, "mobile"):
+	case strings.Contains(finalNode, "mobile") && IsStringType(tp):
 		return RMobile(), true
 	case strings.Contains(finalNode, "time"):
 		if IsTimeType(tp) {
@@ -548,4 +553,30 @@ var nilValue = reflect.ValueOf(nilStruct{})
 
 func buildPath(steps []string) string {
 	return strings.Join(steps, ".")
+}
+
+// in case of type conversion fail
+func setContainerValue(c reflect.Value, v reflect.Value) {
+	switch v.Kind() {
+	case reflect.String:
+		c.SetString(v.String())
+	case reflect.Bool:
+		c.SetBool(v.Bool())
+	case reflect.Int:
+		c.SetInt(v.Int())
+	case reflect.Int16:
+		c.SetInt(v.Int())
+	case reflect.Int32:
+		c.SetInt(v.Int())
+	case reflect.Int64:
+		c.SetInt(v.Int())
+	case reflect.Int8:
+		c.SetInt(v.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		c.SetUint(v.Uint())
+	case reflect.Float32, reflect.Float64:
+		c.SetFloat(v.Float())
+	default:
+		c.Set(v)
+	}
 }
