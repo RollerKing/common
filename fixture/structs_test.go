@@ -148,10 +148,12 @@ func TestFillNonStruct(t *testing.T) {
 
 func TestNil(t *testing.T) {
 	a := struct {
-		URL  *string
-		Name *string
-		Nums []*int
-		Deep *A
+		URL      *string
+		Name     *string
+		Nums     []*int
+		Deep     *A
+		FArr     [3]int
+		Anything interface{}
 	}{}
 	FillStruct(&a, SetPathToValueFunc(func(p string, tt reflect.Type) (interface{}, bool) {
 		t.Log(p, tt.String())
@@ -161,6 +163,9 @@ func TestNil(t *testing.T) {
 		if p == "Nums.[1]" {
 			return nil, true
 		}
+		if p == "FArr" {
+			return [3]int{0, 1, 2}, true
+		}
 		if p == "Deep.B" {
 			return nil, true
 		}
@@ -169,6 +174,10 @@ func TestNil(t *testing.T) {
 		}
 		if p == "Deep.Text" {
 			return nil, true
+		}
+		str := "TEXT"
+		if p == "Anything" {
+			return &str, true
 		}
 		return nil, false
 	}))
@@ -190,6 +199,14 @@ func TestNil(t *testing.T) {
 	}
 	if a.Deep.Text != nil {
 		t.Fatal("should be nil")
+	}
+	for i, val := range a.FArr {
+		if i != val {
+			t.Fatal("baa fill")
+		}
+	}
+	if val, ok := a.Anything.(*string); !ok || *val != "TEXT" {
+		t.Fatal("baa fill")
 	}
 }
 

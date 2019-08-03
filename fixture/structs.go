@@ -236,7 +236,7 @@ func (fl *filler) getPathValue(steps []string, tp reflect.Type) (reflect.Value, 
 			v = nilValue
 		} else {
 			v = reflect.ValueOf(obj)
-			if v.Kind() == reflect.Ptr {
+			if v.Kind() == reflect.Ptr && tp.Kind() != reflect.Interface {
 				return v.Elem(), true
 			}
 		}
@@ -352,7 +352,13 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 			v.Set(array)
 		}
 	case reflect.Array:
-		fl.initializeArray(steps, v.Type().Elem(), v, level)
+		if vv, ok := fl.getPathValue(steps, t); ok {
+			if vv != nilValue {
+				v.Set(vv)
+			}
+		} else {
+			fl.initializeArray(steps, v.Type().Elem(), v, level)
+		}
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
 	case reflect.Interface:
