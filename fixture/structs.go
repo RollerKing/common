@@ -29,11 +29,6 @@ const MapKey = "$$KEY"
 
 // FillStruct fill struct, obj must be pointer
 func FillStruct(obj interface{}, optF ...OptionFunc) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("fill struct: %v", r)
-		}
-	}()
 	stype := reflect.TypeOf(obj)
 	if stype.Kind() != reflect.Ptr {
 		return errors.New("should be pointer")
@@ -42,7 +37,7 @@ func FillStruct(obj interface{}, optF ...OptionFunc) (err error) {
 	for _, fn := range optF {
 		fn(&opt)
 	}
-	f := &filler{option: &opt}
+	f := &filler{option: &opt, passed: make(map[string]bool)}
 	f.initializeVal([]string{}, stype.Elem(), reflect.ValueOf(obj).Elem(), opt.MaxLevel)
 	return
 }
@@ -104,9 +99,18 @@ func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Val
 			offset = 1
 		}
 		if ft.Type.Kind() == reflect.Ptr {
-			fv := reflect.New(ft.Type.Elem())
-			fl.initializeVal(appendStep(steps, ft.Name), ft.Type.Elem(), fv.Elem(), level-1+offset)
-			f.Set(fv)
+			vv, ok := fl.getPathValue(appendStep(steps, ft.Name), ft.Type)
+			if ok {
+				if vv != nilValue {
+					fv := reflect.New(ft.Type.Elem())
+					fv.Elem().Set(vv)
+					f.Set(fv)
+				}
+			} else {
+				fv := reflect.New(ft.Type.Elem())
+				fl.initializeVal(appendStep(steps, ft.Name), ft.Type.Elem(), fv.Elem(), level-1+offset)
+				f.Set(fv)
+			}
 		} else {
 			fl.initializeVal(appendStep(steps, ft.Name), ft.Type, f, level-1+offset)
 		}
@@ -121,9 +125,18 @@ func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.
 	}
 	if elemt.Kind() == reflect.Ptr {
 		for i := 0; i < size; i++ {
-			ele := reflect.New(elemt.Elem())
-			fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
-			slicev.Index(i).Set(ele)
+			vv, ok := fl.getPathValue(appendStep(steps, "[", i, "]"), elemt)
+			if ok {
+				if vv != nilValue {
+					ele := reflect.New(elemt.Elem())
+					ele.Elem().Set(vv)
+					slicev.Index(i).Set(ele)
+				}
+			} else {
+				ele := reflect.New(elemt.Elem())
+				fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
+				slicev.Index(i).Set(ele)
+			}
 		}
 	} else {
 		for i := 0; i < size; i++ {
@@ -142,9 +155,18 @@ func (fl *filler) initializeArray(steps []string, elemt reflect.Type, arrayv ref
 	}
 	if elemt.Kind() == reflect.Ptr {
 		for i := 0; i < size; i++ {
-			ele := reflect.New(elemt.Elem())
-			fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
-			arrayv.Index(i).Set(ele)
+			vv, ok := fl.getPathValue(appendStep(steps, "[", i, "]"), elemt)
+			if ok {
+				if vv != nilValue {
+					ele := reflect.New(elemt.Elem())
+					ele.Elem().Set(vv)
+					arrayv.Index(i).Set(ele)
+				}
+			} else {
+				ele := reflect.New(elemt.Elem())
+				fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
+				arrayv.Index(i).Set(ele)
+			}
 		}
 	} else {
 		for i := 0; i < size; i++ {
@@ -174,9 +196,18 @@ func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflec
 		}
 		// value
 		if tv.Kind() == reflect.Ptr {
-			vptr := reflect.New(tv.Elem())
-			fl.initializeVal(appendStep(steps, key.String()), vptr.Elem().Type(), vptr.Elem(), level-1)
-			val = vptr
+			vv, ok := fl.getPathValue(appendStep(steps, key.String()), tv)
+			if ok {
+				if vv != nilValue {
+					vptr := reflect.New(tv.Elem())
+					vptr.Set(vv)
+					val = vptr
+				}
+			} else {
+				vptr := reflect.New(tv.Elem())
+				fl.initializeVal(appendStep(steps, key.String()), vptr.Elem().Type(), vptr.Elem(), level-1)
+				val = vptr
+			}
 		} else {
 			vptr := reflect.New(tv)
 			fl.initializeVal(appendStep(steps, key.String()), tv, vptr.Elem(), level-1)
@@ -188,16 +219,32 @@ func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflec
 
 func (fl *filler) getPathValue(steps []string, tp reflect.Type) (reflect.Value, bool) {
 	path := strings.Join(steps, ".")
+	if fl.isVisited(path) {
+		return nilValue, false
+	}
+	fl.visit(path)
 	if fl.PathToValueFunc == nil || len(steps) == 0 {
 		return reflect.Value{}, false
 	}
 	obj, ok := fl.PathToValueFunc(path, tp)
-	if !ok || obj == nil {
+	if !ok {
 		return reflect.Value{}, false
 	}
-	v := reflect.ValueOf(obj)
-	if v.Kind() == reflect.Ptr {
-		return v.Elem(), true
+	var v reflect.Value
+	if IsRefType(tp) {
+		if obj == nil || (IsRefType(reflect.ValueOf(obj).Type()) && reflect.ValueOf(obj).IsNil()) {
+			v = nilValue
+		} else {
+			v = reflect.ValueOf(obj)
+			if v.Kind() == reflect.Ptr {
+				return v.Elem(), true
+			}
+		}
+	} else {
+		v = reflect.ValueOf(obj)
+		if v.Kind() == reflect.Ptr {
+			return v.Elem(), true
+		}
 	}
 	return v, true
 }
@@ -273,27 +320,46 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 			}
 		}
 	case reflect.Ptr:
-		fv := reflect.New(t)
-		fl.initializeVal(steps, t.Elem(), fv.Elem(), level)
-		v.Set(fv)
+		vv, ok := fl.getPathValue(steps, t)
+		if ok {
+			if vv != nilValue {
+				fv := reflect.New(t)
+				fv.Set(vv)
+				v.Set(fv)
+			}
+		} else {
+			fv := reflect.New(t)
+			fl.initializeVal(steps, t.Elem(), fv.Elem(), level)
+			v.Set(fv)
+		}
 	case reflect.Map:
 		hash := reflect.MakeMap(t)
 		if vv, ok := fl.getPathValue(steps, t); ok {
-			v.Set(vv)
+			if vv != nilValue {
+				v.Set(vv)
+			}
 		} else {
 			fl.initializeMap(steps, t.Key(), t.Elem(), hash, level)
 			v.Set(hash)
 		}
 	case reflect.Slice:
-		array := fl.initializeSlice(steps, t, v.Type().Elem(), level)
-		v.Set(array)
+		if vv, ok := fl.getPathValue(steps, t); ok {
+			if vv != nilValue {
+				v.Set(vv)
+			}
+		} else {
+			array := fl.initializeSlice(steps, t, v.Type().Elem(), level)
+			v.Set(array)
+		}
 	case reflect.Array:
 		fl.initializeArray(steps, v.Type().Elem(), v, level)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
 	case reflect.Interface:
 		if vv, ok := fl.getPathValue(steps, t); ok {
-			v.Set(vv)
+			if vv != nilValue {
+				v.Set(vv)
+			}
 		} else {
 			v.Set(reflect.ValueOf("DYNAMIC"))
 		}
@@ -395,6 +461,11 @@ func IsStringType(tp reflect.Type) bool {
 	return tp.Kind() == reflect.String
 }
 
+// IsRefType is ref type
+func IsRefType(tp reflect.Type) bool {
+	kd := tp.Kind()
+	return kd == reflect.Slice || kd == reflect.Map || kd == reflect.Ptr || kd == reflect.Interface || kd == reflect.Func || kd == reflect.Chan || kd == reflect.UnsafePointer
+}
 func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	list := strings.Split(path, ".")
 	finalNode := strings.ToLower(list[len(list)-1])
@@ -417,7 +488,7 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 		}
 	case strings.Contains(finalNode, "num") && IsIntegerType(tp):
 		return RNumber(1, 1000), true
-	case strings.Contains(finalNode, "phone"):
+	case strings.Contains(finalNode, "phone") && IsStringType(tp):
 		return RMobile(), true
 	case strings.Contains(finalNode, "mobile"):
 		return RMobile(), true
@@ -442,6 +513,15 @@ func defaultOpt() option {
 
 type filler struct {
 	*option
+	passed map[string]bool
+}
+
+func (fl *filler) visit(path string) {
+	fl.passed[path] = true
+}
+
+func (fl *filler) isVisited(path string) bool {
+	return fl.passed[path]
 }
 
 func isExported(fieldName string) bool {
@@ -454,4 +534,12 @@ func appendStep(steps []string, stepArgs ...interface{}) []string {
 		step += fmt.Sprint(arg)
 	}
 	return append(steps, step)
+}
+
+type nilStruct struct{}
+
+var nilValue = reflect.ValueOf(nilStruct{})
+
+func buildPath(steps []string) string {
+	return strings.Join(steps, ".")
 }

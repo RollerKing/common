@@ -145,3 +145,55 @@ func TestFillNonStruct(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNil(t *testing.T) {
+	a := struct {
+		URL  *string
+		Name *string
+		Nums []*int
+		Deep *A
+	}{}
+	FillStruct(&a, SetPathToValueFunc(func(p string, tt reflect.Type) (interface{}, bool) {
+		t.Log(p, tt.String())
+		if p == "URL" {
+			return nil, true
+		}
+		if p == "Nums.[1]" {
+			return nil, true
+		}
+		if p == "Deep.B" {
+			return nil, true
+		}
+		if p == "Deep.M" {
+			return nil, true
+		}
+		if p == "Deep.Text" {
+			return nil, true
+		}
+		return nil, false
+	}))
+	t.Log(jsonObj(&a))
+	if a.URL != nil {
+		t.Fatal("should be nil")
+	}
+	if a.Name == nil || *a.Name == "" {
+		t.Fatal("should not be nil")
+	}
+	if a.Nums[1] != nil {
+		t.Fatal("should be nil")
+	}
+	if a.Deep.B != nil {
+		t.Fatal("should be nil")
+	}
+	if a.Deep.M != nil {
+		t.Fatal("should be nil")
+	}
+	if a.Deep.Text != nil {
+		t.Fatal("should be nil")
+	}
+}
+
+func jsonObj(obj interface{}) string {
+	data, _ := json.MarshalIndent(obj, "    ", "")
+	return string(data)
+}
