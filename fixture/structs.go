@@ -192,7 +192,7 @@ func (fl *filler) getPathValue(steps []string, tp reflect.Type) (reflect.Value, 
 		return reflect.Value{}, false
 	}
 	obj, ok := fl.PathToValueFunc(path, tp)
-	if !ok {
+	if !ok || obj == nil {
 		return reflect.Value{}, false
 	}
 	v := reflect.ValueOf(obj)

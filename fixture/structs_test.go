@@ -50,6 +50,8 @@ func TestFillStruct(t *testing.T) {
 			return "should drop this value", true
 		case "Int":
 			return 1024, true
+		case "B.URL":
+			return nil, true
 		}
 		return nil, false
 	}
