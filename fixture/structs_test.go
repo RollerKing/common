@@ -3,6 +3,7 @@ package fixture
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -18,6 +19,7 @@ type A struct {
 	Mobile string
 	Tm     *time.Time
 	ID     int
+	Text   []*C
 }
 
 type B struct {
@@ -29,8 +31,9 @@ type B struct {
 	Times  []*time.Time
 }
 type C struct {
-	Link string
-	URL  *string
+	Link       string
+	URL        *string
+	MapInteger map[string]*Integer
 }
 
 func TestFillStruct(t *testing.T) {
@@ -66,5 +69,77 @@ func TestFillStruct(t *testing.T) {
 	}
 	if int(obj.Int) != 1024 {
 		t.Fatal("fill bad value")
+	}
+}
+
+type node struct {
+	Left  *node
+	Right *node
+	Val   int
+}
+
+func TestMaxSliceLen(t *testing.T) {
+	b := &B{}
+	FillStruct(b, SetMaxSliceLen(2), SetMaxMapLen(3))
+	if len(b.Phones) != 2 || len(b.Times) != 2 || len(b.C.MapInteger) != 3 {
+		t.Fatal("fill bad value")
+	}
+}
+
+type MMap map[string]*MMap
+
+func TestMaxLevel(t *testing.T) {
+	root := &node{}
+	lvl := 20
+	FillStruct(root, SetMaxLevel(lvl), SetPathToValueFunc(func(p string, tp reflect.Type) (interface{}, bool) {
+		if strings.HasSuffix(p, "Val") {
+			return 5, true
+		}
+		return nil, false
+	}))
+	cur := root
+	for i := 0; i < lvl; i++ {
+		if i < lvl-1 {
+			if cur.Val != 5 {
+				t.Fatal("fill bad value")
+			}
+		}
+		cur = cur.Left
+	}
+	if cur.Val != 0 {
+		t.Fatal("fill bad value")
+	}
+
+	aa := &A{}
+	FillStruct(aa, SetMaxLevel(1))
+	if aa.B.Link != "" {
+		t.Fatal("fill bad value")
+	}
+}
+
+func TestFillNonStruct(t *testing.T) {
+	var strs []string
+	FillStruct(&strs)
+	if len(strs) != 3 || strs[0] == "" {
+		t.Fatal("fill bad value")
+	}
+	m := make(map[string]int)
+	FillStruct(&m)
+	if len(m) == 0 {
+		t.Fatal("fill bad value")
+	}
+
+	type Address [5]byte
+	var array Address
+	if err := FillStruct(&array); err != nil {
+		t.Fatal(err)
+	}
+
+	obj2 := struct {
+		Addr  Address
+		Addr2 *Address
+	}{}
+	if err := FillStruct(&obj2); err != nil {
+		t.Fatal(err)
 	}
 }

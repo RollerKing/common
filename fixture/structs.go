@@ -87,7 +87,7 @@ func WithSysPVFunc(fn PathToValueFunc) OptionFunc {
 }
 
 func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Value, level int) {
-	if level < 0 {
+	if level <= 0 {
 		return
 	}
 	for i := 0; i < v.NumField(); i++ {
@@ -112,25 +112,6 @@ func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Val
 		}
 	}
 }
-func appendStep(steps []string, stepArgs ...interface{}) []string {
-	var step string
-	for _, arg := range stepArgs {
-		step += fmt.Sprint(arg)
-	}
-	return append(steps, step)
-}
-
-func removeString(list []string, str string) []string {
-	offset := 0
-	for i, ele := range list {
-		if ele == str {
-			offset++
-		} else if offset > 0 {
-			list[i-offset] = ele
-		}
-	}
-	return list[:len(list)-offset]
-}
 
 func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.Type, level int) reflect.Value {
 	size := fl.MaxSliceLen
@@ -152,6 +133,27 @@ func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.
 		}
 	}
 	return slicev
+}
+
+func (fl *filler) initializeArray(steps []string, elemt reflect.Type, arrayv reflect.Value, level int) reflect.Value {
+	size := arrayv.Len()
+	if level < 0 {
+		return arrayv
+	}
+	if elemt.Kind() == reflect.Ptr {
+		for i := 0; i < size; i++ {
+			ele := reflect.New(elemt.Elem())
+			fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
+			arrayv.Index(i).Set(ele)
+		}
+	} else {
+		for i := 0; i < size; i++ {
+			ele := reflect.New(elemt)
+			fl.initializeVal(appendStep(steps, "[", i, "]"), elemt, ele.Elem(), level)
+			arrayv.Index(i).Set(ele.Elem())
+		}
+	}
+	return arrayv
 }
 
 func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflect.Value, level int) {
@@ -186,18 +188,18 @@ func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflec
 
 func (fl *filler) getPathValue(steps []string, tp reflect.Type) (reflect.Value, bool) {
 	path := strings.Join(steps, ".")
-	if fl.PathToValueFunc == nil {
+	if fl.PathToValueFunc == nil || len(steps) == 0 {
 		return reflect.Value{}, false
 	}
 	obj, ok := fl.PathToValueFunc(path, tp)
 	if !ok {
 		return reflect.Value{}, false
 	}
-	if v := reflect.ValueOf(obj); v.Kind() == reflect.Ptr {
+	v := reflect.ValueOf(obj)
+	if v.Kind() == reflect.Ptr {
 		return v.Elem(), true
-	} else {
-		return v, true
 	}
+	return v, true
 }
 
 func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value, level int) {
@@ -275,20 +277,18 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 		fl.initializeVal(steps, t.Elem(), fv.Elem(), level)
 		v.Set(fv)
 	case reflect.Map:
-		if level >= 0 {
-			hash := reflect.MakeMap(t)
-			if vv, ok := fl.getPathValue(steps, t); ok {
-				v.Set(vv)
-			} else {
-				fl.initializeMap(steps, t.Key(), t.Elem(), hash, level)
-				v.Set(hash)
-			}
+		hash := reflect.MakeMap(t)
+		if vv, ok := fl.getPathValue(steps, t); ok {
+			v.Set(vv)
+		} else {
+			fl.initializeMap(steps, t.Key(), t.Elem(), hash, level)
+			v.Set(hash)
 		}
 	case reflect.Slice:
-		if level >= 0 {
-			array := fl.initializeSlice(steps, t, v.Type().Elem(), level)
-			v.Set(array)
-		}
+		array := fl.initializeSlice(steps, t, v.Type().Elem(), level)
+		v.Set(array)
+	case reflect.Array:
+		fl.initializeArray(steps, v.Type().Elem(), v, level)
 	case reflect.Chan:
 		v.Set(reflect.MakeChan(t, 0))
 	case reflect.Interface:
@@ -365,8 +365,8 @@ func IsIntegerType(tp reflect.Type) bool {
 	return false
 }
 
-// IsUnsignIntegerType is unsign integer
-func IsUnsignIntegerType(tp reflect.Type) bool {
+// IsUnsiginedIntegerType is unsign integer
+func IsUnsiginedIntegerType(tp reflect.Type) bool {
 	switch tp.Kind() {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		return true
@@ -406,7 +406,7 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	case finalNode == "status":
 		if IsIntegerType(tp) {
 			return 1, true
-		} else if IsUnsignIntegerType(tp) {
+		} else if IsUnsiginedIntegerType(tp) {
 			return uint(1), true
 		}
 	case strings.Contains(finalNode, "num") && IsIntegerType(tp):
@@ -440,4 +440,12 @@ type filler struct {
 
 func isExported(fieldName string) bool {
 	return len(fieldName) > 0 && (fieldName[0] >= 'A' && fieldName[0] <= 'Z')
+}
+
+func appendStep(steps []string, stepArgs ...interface{}) []string {
+	var step string
+	for _, arg := range stepArgs {
+		step += fmt.Sprint(arg)
+	}
+	return append(steps, step)
 }
