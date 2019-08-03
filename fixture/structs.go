@@ -300,6 +300,12 @@ func (fl *filler) initializeVal(steps []string, t reflect.Type, v reflect.Value,
 	}
 }
 
+// LastNodeOfPath last step node of path
+func LastNodeOfPath(path string) string {
+	steps := strings.Split(path, ".")
+	return steps[len(steps)-1]
+}
+
 /*
  random helper
 */
