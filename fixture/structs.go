@@ -71,6 +71,42 @@ func SetPathToValueFunc(fn PathToValueFunc) OptionFunc {
 	}
 }
 
+// InsertPathToValueFunc to the first
+func InsertPathToValueFunc(fnList ...PathToValueFunc) OptionFunc {
+	fn := mergeFuncs(fnList...)
+	return func(opt *option) {
+		if old := opt.PathToValueFunc; old != nil {
+			opt.PathToValueFunc = func(p string, t reflect.Type) (interface{}, bool) {
+				v, ok := fn(p, t)
+				if !ok {
+					return old(p, t)
+				}
+				return v, ok
+			}
+		} else {
+			opt.PathToValueFunc = fn
+		}
+	}
+}
+
+// AppendPathToValueFunc to the tail
+func AppendPathToValueFunc(fnList ...PathToValueFunc) OptionFunc {
+	fn := mergeFuncs(fnList...)
+	return func(opt *option) {
+		if old := opt.PathToValueFunc; old != nil {
+			opt.PathToValueFunc = func(p string, t reflect.Type) (interface{}, bool) {
+				v, ok := old(p, t)
+				if !ok {
+					return fn(p, t)
+				}
+				return v, ok
+			}
+		} else {
+			opt.PathToValueFunc = fn
+		}
+	}
+}
+
 // WithSysPVFunc disclose
 func WithSysPVFunc(fn PathToValueFunc) OptionFunc {
 	return SetPathToValueFunc(func(p string, t reflect.Type) (interface{}, bool) {
@@ -578,5 +614,17 @@ func setContainerValue(c reflect.Value, v reflect.Value) {
 		c.SetFloat(v.Float())
 	default:
 		c.Set(v)
+	}
+}
+
+func mergeFuncs(fn ...PathToValueFunc) PathToValueFunc {
+	return func(p string, t reflect.Type) (interface{}, bool) {
+		for _, f := range fn {
+			v, ok := f(p, t)
+			if ok {
+				return v, ok
+			}
+		}
+		return nil, false
 	}
 }

@@ -214,3 +214,66 @@ func jsonObj(obj interface{}) string {
 	data, _ := json.MarshalIndent(obj, "    ", "")
 	return string(data)
 }
+
+type Chain struct {
+	N    string
+	Tail string
+}
+
+func TestFuncChain(t *testing.T) {
+	f1 := func(p string, tp reflect.Type) (interface{}, bool) {
+		if p == "N" {
+			return "func1", true
+		}
+		return nil, false
+	}
+	f2 := func(p string, tp reflect.Type) (interface{}, bool) {
+		if p == "N" {
+			return "func2", true
+		}
+		return nil, false
+	}
+	f3 := func(p string, tp reflect.Type) (interface{}, bool) {
+		if p == "N" {
+			return "func3", true
+		}
+		if p == "Tail" {
+			return "func3", true
+		}
+		return nil, false
+	}
+	c := Chain{}
+	FillStruct(&c, SetPathToValueFunc(f1))
+	if c.N != "func1" {
+		t.Fatal("bad fill")
+	}
+	c = Chain{}
+	FillStruct(&c, SetPathToValueFunc(f1), AppendPathToValueFunc(f3))
+	if c.N != "func1" {
+		t.Fatal("bad fill")
+	}
+	c = Chain{}
+	FillStruct(&c, SetPathToValueFunc(f1), AppendPathToValueFunc(f3), InsertPathToValueFunc(f2))
+	if c.N != "func2" {
+		t.Fatal("bad fill")
+	}
+	if c.Tail != "func3" {
+		t.Fatal("bad fill")
+	}
+	c = Chain{}
+	FillStruct(&c, AppendPathToValueFunc(f2, f1, f3))
+	if c.N != "func2" {
+		t.Fatal("bad fill")
+	}
+	if c.Tail != "func3" {
+		t.Fatal("bad fill")
+	}
+	c = Chain{}
+	FillStruct(&c, InsertPathToValueFunc(f2, f1, f3))
+	if c.N != "func2" {
+		t.Fatal("bad fill")
+	}
+	if c.Tail != "func3" {
+		t.Fatal("bad fill")
+	}
+}
