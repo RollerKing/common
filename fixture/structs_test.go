@@ -40,17 +40,16 @@ func TestFillStruct(t *testing.T) {
 	obj := &A{}
 	now := time.Now()
 	fn := func(path string, tp reflect.Type) (interface{}, bool) {
-		t.Logf("path=%s type=%s", path, tp)
 		switch path {
-		case "B.Link":
+		case ".B.Link":
 			return "http://www.github.com", true
-		case "B.Times.[0]":
+		case ".B.Times[0]":
 			return &now, true
-		case "B.C.Link":
+		case ".B.C.Link":
 			return "should drop this value", true
-		case "Int":
+		case ".Int":
 			return 1024, true
-		case "B.URL":
+		case ".B.URL":
 			return nil, true
 		}
 		return nil, false
@@ -58,8 +57,6 @@ func TestFillStruct(t *testing.T) {
 	if err := FillStruct(obj, SetMaxLevel(2), SetMaxMapLen(1), SetMaxSliceLen(1), WithSysPVFunc(fn)); err != nil {
 		t.Fatal(err)
 	}
-	data, _ := json.MarshalIndent(obj, "", "   ")
-	t.Log(string(data))
 	if obj.B.Times[0].UnixNano() != now.UnixNano() {
 		t.Fatal("fill bad value")
 	}
@@ -156,32 +153,30 @@ func TestNil(t *testing.T) {
 		Anything interface{}
 	}{}
 	FillStruct(&a, SetPathToValueFunc(func(p string, tt reflect.Type) (interface{}, bool) {
-		t.Log(p, tt.String())
-		if p == "URL" {
+		if p == ".URL" {
 			return nil, true
 		}
-		if p == "Nums.[1]" {
+		if p == ".Nums[1]" {
 			return nil, true
 		}
-		if p == "FArr" {
+		if p == ".FArr" {
 			return [3]int{0, 1, 2}, true
 		}
-		if p == "Deep.B" {
+		if p == ".Deep.B" {
 			return nil, true
 		}
-		if p == "Deep.M" {
+		if p == ".Deep.M" {
 			return nil, true
 		}
-		if p == "Deep.Text" {
+		if p == ".Deep.Text" {
 			return nil, true
 		}
 		str := "TEXT"
-		if p == "Anything" {
+		if p == ".Anything" {
 			return &str, true
 		}
 		return nil, false
 	}))
-	t.Log(jsonObj(&a))
 	if a.URL != nil {
 		t.Fatal("should be nil")
 	}
@@ -222,22 +217,22 @@ type Chain struct {
 
 func TestFuncChain(t *testing.T) {
 	f1 := func(p string, tp reflect.Type) (interface{}, bool) {
-		if p == "N" {
+		if p == ".N" {
 			return "func1", true
 		}
 		return nil, false
 	}
 	f2 := func(p string, tp reflect.Type) (interface{}, bool) {
-		if p == "N" {
+		if p == ".N" {
 			return "func2", true
 		}
 		return nil, false
 	}
 	f3 := func(p string, tp reflect.Type) (interface{}, bool) {
-		if p == "N" {
+		if p == ".N" {
 			return "func3", true
 		}
-		if p == "Tail" {
+		if p == ".Tail" {
 			return "func3", true
 		}
 		return nil, false
@@ -274,6 +269,64 @@ func TestFuncChain(t *testing.T) {
 		t.Fatal("bad fill")
 	}
 	if c.Tail != "func3" {
+		t.Fatal("bad fill")
+	}
+}
+
+func TestSplitFI(t *testing.T) {
+	step := "jlkjlkj"
+	f, i := SplitFieldAndIndex(step)
+	if f != step || i != -1 {
+		t.Fatal("split fail")
+	}
+	step = "element0]"
+	f, i = SplitFieldAndIndex(step)
+	if f != step || i != -1 {
+		t.Fatal("split fail")
+	}
+	step = "element[0]"
+	f, i = SplitFieldAndIndex(step)
+	if f != "element" || i != 0 {
+		t.Fatal("split fail")
+	}
+	step = "element[12]"
+	f, i = SplitFieldAndIndex(step)
+	if f != "element" || i != 12 {
+		t.Fatal("split fail")
+	}
+	step = "element[00]"
+	f, i = SplitFieldAndIndex(step)
+	if f != step || i != -1 {
+		t.Fatal("split fail")
+	}
+}
+
+func TestFillSlice(t *testing.T) {
+	type S struct {
+		Slice  []*string
+		FSlice []*string
+	}
+	s := &S{}
+	FillStruct(s, SetMaxSliceLen(2), WithSysPVFunc(func(p string, tt reflect.Type) (interface{}, bool) {
+		if p == ".FSlice" {
+			str := "please go"
+			return []*string{&str}, true
+		}
+		if p == ".Slice[1]" {
+			return "please go2", true
+		}
+		return nil, false
+	}))
+	if len(s.Slice) != 2 {
+		t.Fatal("bad fill")
+	}
+	if *s.Slice[1] != "please go2" {
+		t.Fatal("bad fill")
+	}
+	if len(s.FSlice) != 1 {
+		t.Fatal("bad fill")
+	}
+	if *s.FSlice[0] != "please go" {
 		t.Fatal("bad fill")
 	}
 }

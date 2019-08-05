@@ -118,6 +118,37 @@ func WithSysPVFunc(fn PathToValueFunc) OptionFunc {
 	})
 }
 
+// SplitFieldAndIndex a step like array[1] to (array,1)
+func SplitFieldAndIndex(step string) (field string, idx int) {
+	field, idx = step, -1
+	data := []byte(step)
+	size := len(data)
+	if size < 4 || data[size-1] != ']' || data[size-2] < '0' || data[size-2] > '9' {
+		return
+	}
+	// split fail if i==0
+	for i := size - 3; i > 0; i-- {
+		if data[i] >= '0' && data[i] <= '9' {
+			// continue
+		} else if data[i] == '[' {
+			// filt field[00]
+			if data[i+1] == '0' && data[i+2] == '0' {
+				break
+			}
+			i64, err := strconv.ParseInt(string(data[i+1:size-1]), 10, 64)
+			if err != nil {
+				break
+			}
+			field = string(data[:i])
+			idx = int(i64)
+			break
+		} else {
+			break
+		}
+	}
+	return
+}
+
 func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Value, level int) {
 	if level <= 0 {
 		return
@@ -255,7 +286,7 @@ func (fl *filler) initializeMap(steps []string, tk, tv reflect.Type, mapv reflec
 }
 
 func (fl *filler) getPathValue(steps []string, tp reflect.Type) (reflect.Value, bool) {
-	path := strings.Join(steps, ".")
+	path := buildPath(steps)
 	if fl.isVisited(path) {
 		return nilValue, false
 	}
@@ -415,11 +446,6 @@ func LastNodeOfPath(path string) string {
 	return steps[len(steps)-1]
 }
 
-/*
- random helper
-*/
-var r = rand.New(rand.NewSource(time.Now().UnixNano()))
-
 // REmail random email
 func REmail() string {
 	return randomString() + "@fixture.com"
@@ -467,10 +493,6 @@ func RString() string {
 	return randomString()
 }
 
-func randomString() string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%v:%v:%v", time.Now(), time.Now().Nanosecond(), r.Float32()))))[:8]
-}
-
 // IsIntegerType is integer
 func IsIntegerType(tp reflect.Type) bool {
 	switch tp.Kind() {
@@ -509,12 +531,19 @@ func IsRefType(tp reflect.Type) bool {
 	kd := tp.Kind()
 	return kd == reflect.Slice || kd == reflect.Map || kd == reflect.Ptr || kd == reflect.Interface || kd == reflect.Func || kd == reflect.Chan || kd == reflect.UnsafePointer
 }
+
+/*
+ random helper
+*/
+var r = rand.New(rand.NewSource(time.Now().UnixNano()))
+
 func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	if tp.Kind() == reflect.Ptr {
 		tp = tp.Elem()
 	}
 	list := strings.Split(path, ".")
 	finalNode := strings.ToLower(list[len(list)-1])
+	finalNode, _ = SplitFieldAndIndex(finalNode)
 	switch {
 	case strings.Contains(finalNode, "email") && IsStringType(tp):
 		return REmail(), true
@@ -587,8 +616,35 @@ type nilStruct struct{}
 
 var nilValue = reflect.ValueOf(nilStruct{})
 
+// is like [number]
+func isIndexToken(s string) bool {
+	token := []byte(s)
+	if len(token) < 3 || token[0] != '[' || token[len(token)-1] != ']' {
+		return false
+	}
+	// filt [00????]
+	if token[1] == '0' && token[2] == '0' {
+		return false
+	}
+	for i := 1; i < len(token)-1; i++ {
+		if token[i] < '0' || token[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// convert steps [f1,f2,[1],f3] to path .f1.f2[1].f3
 func buildPath(steps []string) string {
-	return strings.Join(steps, ".")
+	var list []string
+	for _, s := range steps {
+		if isIndexToken(s) {
+			list = append(list, s)
+		} else {
+			list = append(list, ".", s)
+		}
+	}
+	return strings.Join(list, "")
 }
 
 // in case of type conversion fail
@@ -627,4 +683,8 @@ func mergeFuncs(fn ...PathToValueFunc) PathToValueFunc {
 		}
 		return nil, false
 	}
+}
+
+func randomString() string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%v:%v:%v", time.Now(), time.Now().Nanosecond(), r.Float32()))))[:8]
 }
