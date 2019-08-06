@@ -11,11 +11,11 @@ func TestAndStrings(t *testing.T) {
 	arr := []string{"a", "b"}
 	brr := []string{"e", "b"}
 	crr := []string{"g"}
-	res := MergeStrings(arr, brr, crr)
+	res := UnionStrings(arr, brr, crr)
 	if strings.Join(res, ".") != "a.b.e.g" {
 		t.Fatal(res)
 	}
-	res = MergeStrings([]string{})
+	res = UnionStrings([]string{})
 	if len(res) != 0 {
 		t.Fatal("error")
 	}
