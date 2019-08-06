@@ -70,3 +70,37 @@ func TestCompareStruct(t *testing.T) {
 		}
 	})
 }
+
+func TestCompareInterface(t *testing.T) {
+	cb := func(path string, l, r interface{}) {
+		t.Logf("%s not equal l(%v) r(%v)", path, l, r)
+	}
+	type Tc struct {
+		Any interface{}
+	}
+	t1 := Tc{Any: 1}
+	t2 := Tc{Any: 1}
+	if !DeepCompare(t1, t2, cb) {
+		t.Fatal("bad cmp")
+	}
+
+	t1 = Tc{Any: 1}
+	t2 = Tc{Any: nil}
+	if DeepCompare(t1, t2, cb) {
+		t.Fatal("bad cmp")
+	}
+
+	str1, str2 := "a", "b"
+	t1 = Tc{Any: &str1}
+	t2 = Tc{Any: &str2}
+	if DeepCompare(t1, t2, cb) {
+		t.Fatal("bad cmp")
+	}
+
+	str1, str2 = "a", "a"
+	t1 = Tc{Any: &str1}
+	t2 = Tc{Any: &str2}
+	if !DeepCompare(t1, t2, cb) {
+		t.Fatal("bad cmp")
+	}
+}

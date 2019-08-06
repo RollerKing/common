@@ -69,7 +69,7 @@ func cmpVal(t reflect.Type, lv, rv reflect.Value, steps []string, cb NotEqualCal
 			return false
 		}
 		if !lv.IsNil() && !lv.IsNil() {
-			return cmpMap(t.Key(), t.Elem(), lv.Elem(), rv.Elem(), steps, cb)
+			return cmpMap(t.Key(), t.Elem(), lv, rv, steps, cb)
 		} else {
 			return doCmp(lv.IsNil() == rv.IsNil())
 		}
@@ -85,7 +85,19 @@ func cmpVal(t reflect.Type, lv, rv reflect.Value, steps []string, cb NotEqualCal
 	case reflect.Chan:
 		return true
 	case reflect.Interface:
-		return true
+		if lv.IsNil() == rv.IsNil() {
+			if lv.IsNil() {
+				return true
+			}
+			if lv.Elem().Kind() == reflect.Ptr {
+				return cmpVal(lv.Elem().Elem().Type(), lv.Elem().Elem(), rv.Elem().Elem(), steps, cb)
+			} else {
+				return cmpVal(lv.Elem().Type(), lv.Elem(), rv.Elem(), steps, cb)
+			}
+		} else {
+			cb(buildCmpPath(steps), lv.Interface(), rv.Interface())
+			return false
+		}
 	}
 	return true
 }
