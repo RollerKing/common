@@ -89,7 +89,7 @@ type MMap map[string]*MMap
 
 func TestMaxLevel(t *testing.T) {
 	root := &node{}
-	lvl := 20
+	lvl := 10
 	FillStruct(root, SetMaxLevel(lvl), SetPathToValueFunc(func(p string, tp reflect.Type) (interface{}, bool) {
 		if strings.HasSuffix(p, "Val") {
 			return 5, true

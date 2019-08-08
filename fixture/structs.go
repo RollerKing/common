@@ -149,6 +149,12 @@ func SplitFieldAndIndex(step string) (field string, idx int) {
 	return
 }
 
+// TrimFieldIndexSuffix trim step[0] to step
+func TrimFieldIndexSuffix(step string) string {
+	f, _ := SplitFieldAndIndex(step)
+	return f
+}
+
 func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Value, level int) {
 	if level <= 0 {
 		return
@@ -493,6 +499,11 @@ func RString() string {
 	return randomString()
 }
 
+// IsPtr is pointer
+func IsPtr(tp reflect.Type) bool {
+	return tp.Kind() == reflect.Ptr
+}
+
 // IsIntegerType is integer
 func IsIntegerType(tp reflect.Type) bool {
 	switch tp.Kind() {
@@ -500,6 +511,11 @@ func IsIntegerType(tp reflect.Type) bool {
 		return true
 	}
 	return false
+}
+
+// IsIntegerPtrType is *integer
+func IsIntegerPtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsIntegerType(tp)
 }
 
 // IsUnsiginedIntegerType is unsign integer
@@ -511,9 +527,19 @@ func IsUnsiginedIntegerType(tp reflect.Type) bool {
 	return false
 }
 
+// IsUnsiginedIntegerPtrType is unsigined *integer
+func IsUnsiginedIntegerPtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsUnsiginedIntegerType(tp)
+}
+
 // IsFloatType is float
 func IsFloatType(tp reflect.Type) bool {
 	return tp.Kind() == reflect.Float32 || tp.Kind() == reflect.Float64
+}
+
+// IsFloatPtrType is *float
+func IsFloatPtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsFloatType(tp)
 }
 
 // IsTimeType is time.Time
@@ -521,9 +547,19 @@ func IsTimeType(tp reflect.Type) bool {
 	return tp == reflect.TypeOf(time.Time{})
 }
 
+// IsTimePtrType is *time.Time
+func IsTimePtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsTimeType(tp)
+}
+
 // IsStringType is string
 func IsStringType(tp reflect.Type) bool {
 	return tp.Kind() == reflect.String
+}
+
+// IsStringPtrType is *string
+func IsStringPtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsStringType(tp)
 }
 
 // IsRefType is ref type
