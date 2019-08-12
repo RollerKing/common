@@ -34,6 +34,9 @@ func FillStruct(obj interface{}, optF ...OptionFunc) (err error) {
 	if stype.Kind() != reflect.Ptr {
 		return errors.New("should be pointer")
 	}
+	if reflect.ValueOf(obj).Elem().Type().Kind() == reflect.Ptr {
+		return errors.New("should not pass pointer of pointer")
+	}
 	opt := defaultOpt()
 	for _, fn := range optF {
 		fn(&opt)

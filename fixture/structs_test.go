@@ -330,3 +330,12 @@ func TestFillSlice(t *testing.T) {
 		t.Fatal("bad fill")
 	}
 }
+
+func TestBadParams(t *testing.T) {
+	type BadArgs struct{}
+	obj := &BadArgs{}
+	err := FillStruct(&obj)
+	if err == nil {
+		t.Fatal("should has error")
+	}
+}
