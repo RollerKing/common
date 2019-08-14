@@ -516,9 +516,19 @@ func IsIntegerType(tp reflect.Type) bool {
 	return false
 }
 
+// IsBoolType is bool
+func IsBoolType(tp reflect.Type) bool {
+	return tp.Kind() == reflect.Bool
+}
+
+// IsBoolPtrType is *bool
+func IsBoolPtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsBoolType(tp.Elem())
+}
+
 // IsIntegerPtrType is *integer
 func IsIntegerPtrType(tp reflect.Type) bool {
-	return IsPtr(tp) && IsIntegerType(tp)
+	return IsPtr(tp) && IsIntegerType(tp.Elem())
 }
 
 // IsUnsiginedIntegerType is unsign integer
@@ -532,7 +542,7 @@ func IsUnsiginedIntegerType(tp reflect.Type) bool {
 
 // IsUnsiginedIntegerPtrType is unsigined *integer
 func IsUnsiginedIntegerPtrType(tp reflect.Type) bool {
-	return IsPtr(tp) && IsUnsiginedIntegerType(tp)
+	return IsPtr(tp) && IsUnsiginedIntegerType(tp.Elem())
 }
 
 // IsFloatType is float
@@ -542,7 +552,7 @@ func IsFloatType(tp reflect.Type) bool {
 
 // IsFloatPtrType is *float
 func IsFloatPtrType(tp reflect.Type) bool {
-	return IsPtr(tp) && IsFloatType(tp)
+	return IsPtr(tp) && IsFloatType(tp.Elem())
 }
 
 // IsTimeType is time.Time
@@ -552,7 +562,7 @@ func IsTimeType(tp reflect.Type) bool {
 
 // IsTimePtrType is *time.Time
 func IsTimePtrType(tp reflect.Type) bool {
-	return IsPtr(tp) && IsTimeType(tp)
+	return IsPtr(tp) && IsTimeType(tp.Elem())
 }
 
 // IsStringType is string
@@ -562,7 +572,7 @@ func IsStringType(tp reflect.Type) bool {
 
 // IsStringPtrType is *string
 func IsStringPtrType(tp reflect.Type) bool {
-	return IsPtr(tp) && IsStringType(tp)
+	return IsPtr(tp) && IsStringType(tp.Elem())
 }
 
 // IsRefType is ref type
