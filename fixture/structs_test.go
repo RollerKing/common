@@ -339,3 +339,20 @@ func TestBadParams(t *testing.T) {
 		t.Fatal("should has error")
 	}
 }
+
+func TestForceSliceLen(t *testing.T) {
+	type FSlice struct {
+		Norm  []string
+		Force []string
+	}
+	obj := &FSlice{}
+	if err := FillStruct(obj, SetMaxSliceLen(3), SetSliceLen(".Force", 1)); err != nil {
+		t.Fatal("bad fill")
+	}
+	if len(obj.Norm) != 3 {
+		t.Fatal("bad fill")
+	}
+	if len(obj.Force) != 1 {
+		t.Fatal("bad fill")
+	}
+}

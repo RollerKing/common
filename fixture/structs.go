@@ -15,6 +15,7 @@ import (
 type option struct {
 	MaxLevel        int
 	MaxSliceLen     int
+	ForceSliceLen   map[string]*int
 	MaxMapLen       int
 	PathToValueFunc PathToValueFunc
 }
@@ -71,6 +72,15 @@ func SetMaxMapLen(size int) OptionFunc {
 func SetPathToValueFunc(fn PathToValueFunc) OptionFunc {
 	return func(opt *option) {
 		opt.PathToValueFunc = fn
+	}
+}
+
+// SetSliceLen under certain path
+func SetSliceLen(path string, size int) OptionFunc {
+	return func(opt *option) {
+		if size >= 0 {
+			opt.ForceSliceLen[path] = &size
+		}
 	}
 }
 
@@ -196,6 +206,9 @@ func (fl *filler) initializeStruct(steps []string, t reflect.Type, v reflect.Val
 
 func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.Type, level int) reflect.Value {
 	size := fl.MaxSliceLen
+	if l, ok := fl.ForceSliceLen[buildPath(steps)]; ok {
+		size = *l
+	}
 	slicev := reflect.MakeSlice(t, size, size)
 	if level < 0 {
 		return slicev
@@ -633,6 +646,7 @@ func defaultOpt() option {
 		MaxMapLen:       2,
 		MaxSliceLen:     3,
 		PathToValueFunc: defaultPathToValueFunc,
+		ForceSliceLen:   make(map[string]*int),
 	}
 }
 
