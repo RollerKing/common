@@ -170,6 +170,29 @@ func TestWalkStop(t *testing.T) {
 	}
 }
 
+func TestWalkOnce(t *testing.T) {
+	type X struct {
+		Name *string
+	}
+	str := "ptr"
+	cnt := 0
+	x := &X{Name: &str}
+	x1 := &X{}
+	Walk(x, func(p string, tp reflect.Type, i interface{}) bool {
+		if p == ".Name" {
+			x1.Name = i.(*string)
+			cnt++
+		}
+		return true
+	})
+	if *x1.Name != "ptr" {
+		t.Fatal("bad walk")
+	}
+	if cnt != 1 {
+		t.Fatal("bad walk")
+	}
+}
+
 func TestWalkLeaf(t *testing.T) {
 	type XI struct {
 		Num int

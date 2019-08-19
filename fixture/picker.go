@@ -176,7 +176,7 @@ func PickValues(obj interface{}, pathFn PathHitter) (vals Values) {
 		return
 	}
 	v := reflect.ValueOf(obj)
-	walkVal([]string{}, v.Type(), v, pathHitterToVisitor(pathFn, vals))
+	walkVal([]string{}, v.Type(), v, visitOnce(pathHitterToVisitor(pathFn, vals)))
 	return
 }
 
@@ -186,7 +186,7 @@ func Walk(obj interface{}, visitFn Visitor) {
 		return
 	}
 	v := reflect.ValueOf(obj)
-	walkVal([]string{}, v.Type(), v, visitFn)
+	walkVal([]string{}, v.Type(), v, visitOnce(visitFn))
 }
 
 // WalkLeaf call visitFn only when primitive tyeps
@@ -198,6 +198,17 @@ func WalkLeaf(obj interface{}, visitFn Visitor) {
 		return true
 	}
 	Walk(obj, fn)
+}
+
+func visitOnce(visit Visitor) Visitor {
+	onceMap := make(map[string]bool)
+	return func(path string, tp reflect.Type, v interface{}) bool {
+		if _, ok := onceMap[path]; ok {
+			return true
+		}
+		onceMap[path] = true
+		return visit(path, tp, v)
+	}
 }
 
 func pathHitterToVisitor(pathFn PathHitter, vals Values) Visitor {
