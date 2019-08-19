@@ -146,3 +146,77 @@ func TestPickerRecursive(t *testing.T) {
 		}
 	}
 }
+
+func TestWalkStop(t *testing.T) {
+	type X struct {
+		Name string
+		Age  int
+	}
+	x := &X{Name: "name", Age: 23}
+	x1 := &X{}
+	Walk(x, func(p string, tp reflect.Type, i interface{}) bool {
+		if p == ".Name" {
+			x1.Name = i.(string)
+			return false
+		} else {
+			return true
+		}
+	})
+	if x1.Name != "name" {
+		t.Fatal("bad walk")
+	}
+	if x1.Age != 0 {
+		t.Fatal("bad walk")
+	}
+}
+
+func TestWalkLeaf(t *testing.T) {
+	type XI struct {
+		Num int
+	}
+	type X struct {
+		Name string
+		Map  map[string]int
+		List []XI
+	}
+	x := &X{
+		Name: "name",
+		Map:  map[string]int{"key": 12},
+		List: []XI{
+			{Num: 0},
+			{Num: 1},
+			{Num: 2},
+		}}
+	WalkLeaf(x, func(p string, tp reflect.Type, i interface{}) bool {
+		switch p {
+		case ".Name":
+			if i.(string) != "name" {
+				t.Fatal("bad walk")
+			}
+			return true
+		case ".Map.key":
+			if i.(int) != 12 {
+				t.Fatal("bad walk")
+			}
+			return true
+		case ".List[0].Num":
+			if i.(int) != 0 {
+				t.Fatal("bad walk")
+			}
+			return true
+		case ".List[1].Num":
+			if i.(int) != 1 {
+				t.Fatal("bad walk")
+			}
+			return true
+		case ".List[2].Num":
+			if i.(int) != 2 {
+				t.Fatal("bad walk")
+			}
+			return true
+		}
+		t.Fatal("should not come here")
+		return true
+	})
+
+}

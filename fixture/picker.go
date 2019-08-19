@@ -14,6 +14,9 @@ var (
 // PathHitter return true if you want get the value of certain path
 type PathHitter func(string) bool
 
+// Visitor func
+type Visitor func(path string, tp reflect.Type, v interface{}) (isContinue bool)
+
 type value struct {
 	v   interface{}
 	err error
@@ -173,136 +176,183 @@ func PickValues(obj interface{}, pathFn PathHitter) (vals Values) {
 		return
 	}
 	v := reflect.ValueOf(obj)
-	pickVal([]string{}, v.Type(), v, pathFn, vals)
+	walkVal([]string{}, v.Type(), v, pathHitterToVisitor(pathFn, vals))
 	return
 }
 
-func pickVal(steps []string, t reflect.Type, v reflect.Value, pathFn PathHitter, res Values) {
+// Walk object
+func Walk(obj interface{}, visitFn Visitor) {
+	if obj == nil {
+		return
+	}
+	v := reflect.ValueOf(obj)
+	walkVal([]string{}, v.Type(), v, visitFn)
+}
+
+// WalkLeaf call visitFn only when primitive tyeps
+func WalkLeaf(obj interface{}, visitFn Visitor) {
+	fn := func(path string, tp reflect.Type, v interface{}) bool {
+		if IsPrimitiveType(tp) || IsPrimitivePtrType(tp) || IsTimePtrType(tp) || IsTimeType(tp) {
+			return visitFn(path, tp, v)
+		}
+		return true
+	}
+	Walk(obj, fn)
+}
+
+func pathHitterToVisitor(pathFn PathHitter, vals Values) Visitor {
+	return func(path string, tp reflect.Type, v interface{}) bool {
+		if pathFn(path) {
+			vals.setVal(path, v)
+		}
+		return true
+	}
+}
+
+func walkVal(steps []string, t reflect.Type, v reflect.Value, visit Visitor) bool {
 	path := buildPath(steps)
 	switch t.Kind() {
 	case reflect.String:
-		if pathFn(path) {
-			res.setVal(path, v.String())
+		if !visit(path, t, v.String()) {
+			return false
 		}
 	case reflect.Bool:
-		if pathFn(path) {
-			res.setVal(path, v.Bool())
+		if !visit(path, t, v.Bool()) {
+			return false
 		}
 	case reflect.Int64:
-		if pathFn(path) {
-			res.setVal(path, int64(v.Int()))
+		if !visit(path, t, int64(v.Int())) {
+			return false
 		}
 	case reflect.Int:
-		if pathFn(path) {
-			res.setVal(path, int(v.Int()))
+		if !visit(path, t, int(v.Int())) {
+			return false
 		}
 	case reflect.Int8:
-		if pathFn(path) {
-			res.setVal(path, int8(v.Int()))
+		if !visit(path, t, int8(v.Int())) {
+			return false
 		}
 	case reflect.Int16:
-		if pathFn(path) {
-			res.setVal(path, int16(v.Int()))
+		if !visit(path, t, int16(v.Int())) {
+			return false
 		}
 	case reflect.Int32:
-		if pathFn(path) {
-			res.setVal(path, int32(v.Int()))
+		if !visit(path, t, int32(v.Int())) {
+			return false
 		}
 	case reflect.Uint:
-		if pathFn(path) {
-			res.setVal(path, v.Uint())
+		if !visit(path, t, v.Uint()) {
+			return false
 		}
 	case reflect.Uint8:
-		if pathFn(path) {
-			res.setVal(path, uint8(v.Uint()))
+		if !visit(path, t, uint8(v.Uint())) {
+			return false
 		}
 	case reflect.Uint16:
-		if pathFn(path) {
-			res.setVal(path, uint16(v.Uint()))
+		if !visit(path, t, uint16(v.Uint())) {
+			return false
 		}
 	case reflect.Uint32:
-		if pathFn(path) {
-			res.setVal(path, uint32(v.Uint()))
+		if !visit(path, t, uint32(v.Uint())) {
+			return false
 		}
 	case reflect.Uint64:
-		if pathFn(path) {
-			res.setVal(path, uint64(v.Uint()))
+		if !visit(path, t, uint64(v.Uint())) {
+			return false
 		}
 	case reflect.Uintptr:
-		if pathFn(path) {
-			res.setVal(path, uintptr(v.Uint()))
+		if !visit(path, t, uintptr(v.Uint())) {
+			return false
 		}
 	case reflect.Float32:
-		if pathFn(path) {
-			res.setVal(path, float32(v.Float()))
+		if !visit(path, t, float32(v.Float())) {
+			return false
 		}
 	case reflect.Float64:
-		if pathFn(path) {
-			res.setVal(path, v.Float())
+		if !visit(path, t, v.Float()) {
+			return false
 		}
 	case reflect.Struct:
-		if pathFn(path) {
-			res.setVal(path, v.Interface())
+		if !visit(path, t, v.Interface()) {
+			return false
 		}
-		pickStruct(steps, t, v, pathFn, res)
+		walkStruct(steps, t, v, visit)
 	case reflect.Ptr:
-		if pathFn(path) {
-			res.setVal(path, v.Interface())
+		if !visit(path, t, v.Interface()) {
+			return false
 		}
 		if !v.IsNil() {
-			pickVal(steps, t.Elem(), v.Elem(), pathFn, res)
-		}
-	case reflect.Map:
-		if pathFn(path) {
-			res.setVal(path, v.Interface())
-		}
-		if !v.IsNil() {
-			pickMap(steps, t.Key(), t.Elem(), v, pathFn, res)
-		}
-	case reflect.Slice, reflect.Array:
-		if pathFn(path) {
-			res.setVal(path, v.Interface())
-		}
-		if !v.IsNil() {
-			pickSlice(steps, t.Elem(), v, pathFn, res)
-		}
-	case reflect.Chan:
-
-	case reflect.Interface:
-		if pathFn(path) {
-			res.setVal(path, v.Interface())
-		}
-		if !v.IsNil() {
-			if v.Elem().Kind() == reflect.Ptr {
-				pickVal(steps, v.Elem().Elem().Type(), v.Elem().Elem(), pathFn, res)
-			} else {
-				pickVal(steps, v.Elem().Type(), v.Elem(), pathFn, res)
+			if !walkVal(steps, t.Elem(), v.Elem(), visit) {
+				return false
 			}
 		}
+	case reflect.Map:
+		if !visit(path, t, v.Interface()) {
+			return false
+		}
+		if !v.IsNil() {
+			if !walkMap(steps, t.Key(), t.Elem(), v, visit) {
+				return false
+			}
+		}
+	case reflect.Slice, reflect.Array:
+		if !visit(path, t, v.Interface()) {
+			return false
+		}
+		if !v.IsNil() {
+			if !walkSlice(steps, t.Elem(), v, visit) {
+				return false
+			}
+		}
+	case reflect.Chan:
+		return false
+	case reflect.Interface:
+		if !visit(path, t, v.Interface()) {
+			return false
+		}
+		if !v.IsNil() {
+			var isContinue bool
+			if v.Elem().Kind() == reflect.Ptr {
+				isContinue = walkVal(steps, v.Elem().Elem().Type(), v.Elem().Elem(), visit)
+			} else {
+				isContinue = walkVal(steps, v.Elem().Type(), v.Elem(), visit)
+			}
+			return isContinue
+		}
 	}
+	return true
 }
 
-func pickMap(steps []string, kt, vt reflect.Type, v reflect.Value, fn PathHitter, res Values) {
+func walkMap(steps []string, kt, vt reflect.Type, v reflect.Value, fn Visitor) bool {
 	keys := v.MapKeys()
 	for _, key := range keys {
 		vv := v.MapIndex(key)
-		pickVal(append(steps, key.String()), vv.Type(), vv, fn, res)
+		if !walkVal(append(steps, key.String()), vv.Type(), vv, fn) {
+			return false
+		}
 	}
+	return true
 }
 
-func pickStruct(steps []string, t reflect.Type, v reflect.Value, fn PathHitter, res Values) {
+func walkStruct(steps []string, t reflect.Type, v reflect.Value, fn Visitor) bool {
 	for i := 0; i < v.NumField(); i++ {
 		fv := v.Field(i)
 		ft := t.Field(i)
 		if !isExported(ft.Name) {
 			continue
 		}
-		pickVal(append(steps, ft.Name), ft.Type, fv, fn, res)
+		if !walkVal(append(steps, ft.Name), ft.Type, fv, fn) {
+			return false
+		}
 	}
+	return true
 }
 
-func pickSlice(steps []string, et reflect.Type, v reflect.Value, fn PathHitter, res Values) {
+func walkSlice(steps []string, et reflect.Type, v reflect.Value, fn Visitor) bool {
 	for i := 0; i < v.Len(); i++ {
-		pickVal(appendStep(steps, "[", strconv.FormatInt(int64(i), 10), "]"), et, v.Index(i), fn, res)
+		if !walkVal(appendStep(steps, "[", strconv.FormatInt(int64(i), 10), "]"), et, v.Index(i), fn) {
+			return false
+		}
 	}
+	return true
 }
