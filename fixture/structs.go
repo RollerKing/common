@@ -522,11 +522,8 @@ func IsPtr(tp reflect.Type) bool {
 
 // IsIntegerType is integer
 func IsIntegerType(tp reflect.Type) bool {
-	switch tp.Kind() {
-	case reflect.Int, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int8:
-		return true
-	}
-	return false
+	kind := tp.Kind()
+	return reflect.Int <= kind && kind <= reflect.Int64
 }
 
 // IsBoolType is bool
@@ -546,11 +543,8 @@ func IsIntegerPtrType(tp reflect.Type) bool {
 
 // IsUnsiginedIntegerType is unsign integer
 func IsUnsiginedIntegerType(tp reflect.Type) bool {
-	switch tp.Kind() {
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		return true
-	}
-	return false
+	kind := tp.Kind()
+	return reflect.Uint <= kind && kind <= reflect.Uintptr
 }
 
 // IsUnsiginedIntegerPtrType is unsigined *integer
@@ -586,6 +580,17 @@ func IsStringType(tp reflect.Type) bool {
 // IsStringPtrType is *string
 func IsStringPtrType(tp reflect.Type) bool {
 	return IsPtr(tp) && IsStringType(tp.Elem())
+}
+
+// IsPrimitiveType is simple types, bool,intx,uintx,floatx
+func IsPrimitiveType(tp reflect.Type) bool {
+	kind := tp.Kind()
+	return (reflect.Bool <= kind && kind <= reflect.Float64) || kind == reflect.String
+}
+
+// IsPrimitivePtrType is simple types, *bool,*intx,*uintx,*floatx
+func IsPrimitivePtrType(tp reflect.Type) bool {
+	return IsPtr(tp) && IsPrimitiveType(tp.Elem())
 }
 
 // IsRefType is ref type
