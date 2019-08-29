@@ -705,8 +705,8 @@ func isIndexToken(s string) bool {
 // convert steps [f1,f2,[1],f3] to path .f1.f2[1].f3
 func buildPath(steps []string) string {
 	var list []string
-	for _, s := range steps {
-		if isIndexToken(s) {
+	for i, s := range steps {
+		if isIndexToken(s) && i > 0 {
 			list = append(list, s)
 		} else {
 			list = append(list, ".", s)
