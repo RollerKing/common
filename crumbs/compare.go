@@ -54,7 +54,7 @@ func cmpVal(t reflect.Type, lv, rv reflect.Value, steps []string, cb NotEqualCal
 	case reflect.Struct:
 		return cmpStruct(t, lv, rv, steps, cb)
 	case reflect.Ptr:
-		if !lv.IsNil() && !lv.IsNil() {
+		if !lv.IsNil() && !rv.IsNil() {
 			return cmpVal(t.Elem(), lv.Elem(), rv.Elem(), steps, cb)
 		} else {
 			return doCmp(lv.IsNil() == rv.IsNil())
@@ -68,7 +68,7 @@ func cmpVal(t reflect.Type, lv, rv reflect.Value, steps []string, cb NotEqualCal
 			cb(buildCmpPath(steps), fmt.Sprintf("Len=%d", lv.Len()), fmt.Sprintf("Len=%d", rv.Len()))
 			return false
 		}
-		if !lv.IsNil() && !lv.IsNil() {
+		if !lv.IsNil() && !rv.IsNil() {
 			return cmpMap(t.Key(), t.Elem(), lv, rv, steps, cb)
 		} else {
 			return doCmp(lv.IsNil() == rv.IsNil())
@@ -177,8 +177,8 @@ func cmpSlice(et reflect.Type, lv, rv reflect.Value, steps []string, cb NotEqual
 
 func buildCmpPath(steps []string) string {
 	var list []string
-	for _, s := range steps {
-		if isIndexToken(s) {
+	for i, s := range steps {
+		if isIndexToken(s) && i > 0 {
 			list = append(list, s)
 		} else {
 			list = append(list, ".", s)
