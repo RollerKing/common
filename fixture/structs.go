@@ -614,7 +614,7 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	switch {
 	case strings.Contains(finalNode, "email") && IsStringType(tp):
 		return REmail(), true
-	case strings.Contains(finalNode, "link") || strings.Contains(finalNode, "url"):
+	case (strings.Contains(finalNode, "link") || strings.Contains(finalNode, "url")) && IsStringType(tp):
 		return RLink(), true
 	case strings.Contains(finalNode, "id"):
 		if IsIntegerType(tp) {
