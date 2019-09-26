@@ -59,13 +59,18 @@ func TestCloneMap(t *testing.T) {
 
 func TestCloneStruct(t *testing.T) {
 	desc := "StructClone"
+	type Inner struct {
+		Movie string
+	}
 	type MyStruct struct {
+		*Inner
 		FString    string
 		FStringPtr *string
 		FSlice     []int
 	}
 	str := "string ptr"
 	ms1 := MyStruct{
+		Inner:      &Inner{Movie: "titanic"},
 		FString:    "aaa",
 		FStringPtr: &str,
 		FSlice:     []int{3, 4, 5},
@@ -81,6 +86,10 @@ func TestCloneStruct(t *testing.T) {
 	ms1.FStringPtr = &str2
 	if *ms2.FStringPtr == str2 {
 		t.Fatal("cloned obj should not be changed")
+	}
+	ms2.Movie = "sharlock"
+	if ms1.Movie != "titanic" || ms2.Movie != "sharlock" {
+		t.Fatal("bad clone")
 	}
 }
 
