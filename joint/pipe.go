@@ -7,19 +7,10 @@ import (
 	"math"
 	"reflect"
 	"sync/atomic"
-	"time"
 )
 
 // Debug would print enquue/dequeue information
 var Debug bool
-
-const (
-	reloadI = iota
-	timeoutI
-	closeI
-	readI
-	writeI
-)
 
 // PipeFilter filter data
 type PipeFilter func(interface{}) bool
@@ -94,6 +85,9 @@ func (j *Joint) Cap() uint64 {
 
 // Breakoff halt conjuction, drop remain data in pipe
 func (j *Joint) Breakoff() {
+	if j.broken == 1 {
+		return
+	}
 	if atomic.CompareAndSwapInt32(&j.broken, 0, 1) {
 		close(j.breakC)
 		close(j.reloadC)
@@ -110,132 +104,17 @@ func (j *Joint) DoneC() <-chan struct{} {
  */
 
 func (j *Joint) transport() {
-	// add timer to prevent fatal error: all goroutines are asleep - deadlock!
-	term := time.Hour * 1
-	timer := time.NewTimer(term)
-	cases := []reflect.SelectCase{
-		{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(j.reloadC), // reload channel
-		},
-		{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(timer.C),
-		},
-		{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(j.breakC),
-		},
-		{
-			Dir:  reflect.SelectRecv,
-			Chan: j.readC,
-		},
-	}
-	cases2 := append(cases, reflect.SelectCase{
-		Dir:  reflect.SelectSend,
-		Chan: j.writeC,
-	})
-	dummyC := reflect.ValueOf(make(chan struct{}, 1))
-	var lastE, lastD interface{}
 	defer func() {
 		j.Breakoff()
 		if Debug {
 			log.Println("[joint] Exited.")
 		}
 	}()
-	var rClosed bool
-	for {
-		if !timer.Stop() {
-			select {
-			case <-timer.C:
-			default:
-			}
-		}
-		timer.Reset(term)
-		if j.queueSize == 0 {
-			if rClosed {
-				return
-			}
-			// list is empty
-			chosen, recv, ok := reflect.Select(cases)
-			if !ok {
-				return
-			}
-			if chosen == timeoutI || chosen == reloadI {
-				continue
-			}
-			dataVal := recv.Interface()
-			// drop data by filter
-			if j.filter != nil && !j.filter(dataVal) {
-				continue
-			}
-			j.queueSize++
-			cases2[writeI].Send = recv
-			if Debug {
-				lastE = recv.Interface()
-				lastD = recv.Interface()
-				log.Printf("[joint] Enqueue %v", lastE)
-			}
-		} else {
-			var chosen int
-			var recv reflect.Value
-			var ok bool
-			if buff := atomic.LoadUint64(&j.maxIn); j.queueSize >= buff {
-				cases2[readI].Chan = dummyC
-				chosen, recv, ok = reflect.Select(cases2)
-				// restore readC
-				cases2[readI].Chan = j.readC
-			} else {
-				chosen, recv, ok = reflect.Select(cases2)
-			}
-			if chosen == timeoutI || chosen == reloadI {
-				continue
-			}
-			if chosen == writeI {
-				// write ok
-				j.queueSize--
-				if Debug {
-					log.Printf("[joint] Dequeue %v", lastD)
-				}
-				for j.queueSize > 0 {
-					val, _ := j.list.pop()
-					if j.filter != nil && !j.filter(val.Interface()) {
-						j.queueSize--
-					} else {
-						cases2[writeI].Send = val
-						if Debug {
-							lastD = val.Interface()
-						}
-						break
-					}
-				}
-			} else {
-				if !ok {
-					if chosen == closeI {
-						return
-					} else {
-						if Debug {
-							log.Println("[joint] Input channel closed.")
-						}
-						cases[readI].Chan = dummyC
-						cases2[readI].Chan = dummyC
-						rClosed = true
-						continue
-					}
-				}
-				if chosen == readI {
-					// read ok
-					j.list.push(recv)
-					j.queueSize++
-					if Debug {
-						lastE = recv.Interface()
-						log.Printf("[joint] Enqueue %v", lastE)
-					}
-				}
-			}
-
-		}
+	sched := newScheduler(j)
+	for !sched.isAborted() {
+		sched.runOnce()
 	}
+	sched.stop()
 }
 
 func checkChan(r interface{}, w interface{}) (rv reflect.Value, wv reflect.Value, err error) {
