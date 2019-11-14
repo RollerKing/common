@@ -98,7 +98,7 @@ func TestPickStruct(t *testing.T) {
 	if res.MustGetTimePtr(".B.Times[0]").Unix() != a.B.Times[0].Unix() {
 		t.Fatal("bad pick")
 	}
-	if res.MustGetInt(".Int") != int(a.Int) {
+	if res.MustGet(".Int").Elem().Interface().(Integer) != a.Int {
 		t.Fatal("bad pick")
 	}
 	if res.MustGetString(".B.Link") != a.B.Link {
@@ -154,9 +154,9 @@ func TestWalkStop(t *testing.T) {
 	}
 	x := &X{Name: "name", Age: 23}
 	x1 := &X{}
-	Walk(x, func(p string, tp reflect.Type, i interface{}) bool {
+	Walk(x, func(p string, tp reflect.Type, i ValuePtr) bool {
 		if p == ".Name" {
-			x1.Name = i.(string)
+			x1.Name = i.Elem().String()
 			return false
 		} else {
 			return true
@@ -178,9 +178,9 @@ func TestWalkOnce(t *testing.T) {
 	cnt := 0
 	x := &X{Name: &str}
 	x1 := &X{}
-	Walk(x, func(p string, tp reflect.Type, i interface{}) bool {
+	Walk(x, func(p string, tp reflect.Type, i ValuePtr) bool {
 		if p == ".Name" {
-			x1.Name = i.(*string)
+			x1.Name = i.Elem().Interface().(*string)
 			cnt++
 		}
 		return true
@@ -210,30 +210,30 @@ func TestWalkLeaf(t *testing.T) {
 			{Num: 1},
 			{Num: 2},
 		}}
-	WalkLeaf(x, func(p string, tp reflect.Type, i interface{}) bool {
+	WalkLeaf(x, func(p string, tp reflect.Type, i ValuePtr) bool {
 		switch p {
 		case ".Name":
-			if i.(string) != "name" {
+			if i.Elem().String() != "name" {
 				t.Fatal("bad walk")
 			}
 			return true
 		case ".Map.key":
-			if i.(int) != 12 {
+			if i.Elem().Interface().(int) != 12 {
 				t.Fatal("bad walk")
 			}
 			return true
 		case ".List[0].Num":
-			if i.(int) != 0 {
+			if i.Elem().Interface().(int) != 0 {
 				t.Fatal("bad walk")
 			}
 			return true
 		case ".List[1].Num":
-			if i.(int) != 1 {
+			if i.Elem().Interface().(int) != 1 {
 				t.Fatal("bad walk")
 			}
 			return true
 		case ".List[2].Num":
-			if i.(int) != 2 {
+			if i.Elem().Interface().(int) != 2 {
 				t.Fatal("bad walk")
 			}
 			return true
@@ -242,4 +242,221 @@ func TestWalkLeaf(t *testing.T) {
 		return true
 	})
 
+}
+
+func TestChangeMap(t *testing.T) {
+	type Ss struct {
+		Map map[string]string
+	}
+
+	s := &Ss{Map: make(map[string]string)}
+	s.Map["key"] = "A"
+
+	vals := PickValues(s, func(p string) bool {
+		return p == ".Map.key"
+	})
+
+	vals.MustGet(".Map.key").Elem().SetString("B")
+
+	if s.Map["key"] == "B" {
+		t.Fatal("should not change map")
+	}
+}
+
+func TestSetNil(t *testing.T) {
+	type Object struct {
+		StringPtr *string
+	}
+	s := "A"
+	obj := &Object{StringPtr: &s}
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		if p == ".StringPtr" {
+			v.Elem().Set(reflect.Zero(t))
+		}
+		return true
+	})
+
+	if obj.StringPtr != nil {
+		t.Fatal("should be nil")
+	}
+}
+
+func TestChangeSimpleValues(t *testing.T) {
+	type Object struct {
+		StringPtr *string
+		String    string
+		NumPtr    *int
+		Num       int
+	}
+	s := "A"
+	i := 1
+	obj := &Object{StringPtr: &s, NumPtr: &i}
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		if p == ".StringPtr" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(&s2))
+		} else if p == ".NumPtr" {
+			i2 := 2
+			v.Elem().Set(reflect.ValueOf(&i2))
+		} else if p == ".Num" {
+			v.Elem().SetInt(100)
+		} else if p == ".String" {
+			v.Elem().SetString("BTX")
+		}
+		return true
+	})
+
+	if *obj.StringPtr != "B" || *obj.NumPtr != 2 || obj.String != "BTX" || obj.Num != 100 {
+		t.Fatal("bad change")
+	}
+}
+
+func TestChangeStruct(t *testing.T) {
+	type Object2 struct {
+		StringPtr *string
+		String    string
+	}
+	type Object struct {
+		O    Object2
+		OPtr *Object2
+	}
+	obj := &Object{OPtr: &Object2{}}
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		if p == ".O.StringPtr" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(&s2))
+		} else if p == ".O.String" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(s2))
+		} else if p == ".OPtr.StringPtr" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(&s2))
+		} else if p == ".OPtr.String" {
+			v.Elem().SetString("B")
+		}
+		return true
+	})
+
+	if *obj.O.StringPtr != "B" || obj.O.String != "B" || obj.OPtr.String != "B" || *obj.OPtr.StringPtr != "B" {
+		t.Fatal("bad change")
+	}
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		if p == ".O" {
+			s := "A"
+			o2 := Object2{String: "A", StringPtr: &s}
+			v.Elem().Set(reflect.ValueOf(o2))
+		} else if p == ".OPtr" {
+			s := "A"
+			o2 := &Object2{String: "A", StringPtr: &s}
+			v.Elem().Set(reflect.ValueOf(o2))
+		}
+		return true
+	})
+
+	if *obj.O.StringPtr != "A" || obj.O.String != "A" || obj.OPtr.String != "A" || *obj.OPtr.StringPtr != "A" {
+		t.Fatal("bad change")
+	}
+}
+
+func TestChangeSlice(t *testing.T) {
+	type Object2 struct {
+		StringPtr *string
+		String    string
+	}
+	type Object struct {
+		List []Object2
+		Ptr  []*Object2
+	}
+	strPtr := func(s string) *string { return &s }
+	obj := &Object{}
+	obj.Ptr = append(obj.Ptr, &Object2{String: "A", StringPtr: strPtr("A")})
+	obj.List = append(obj.List, Object2{String: "A", StringPtr: strPtr("A")})
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		n := LastNodeOfPath(p)
+		if n == "StringPtr" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(&s2))
+		} else if n == "String" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(s2))
+		}
+		return true
+	})
+
+	if obj.Ptr[0].String != "B" || *obj.Ptr[0].StringPtr != "B" || obj.List[0].String != "B" || *obj.List[0].StringPtr != "B" {
+		t.Fatal("bad change")
+	}
+
+	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+		if p == ".Ptr" {
+			v.Elem().Set(reflect.Zero(t))
+		}
+		return true
+	})
+
+	if obj.Ptr != nil {
+		t.Fatal("bad change")
+	}
+}
+
+func TestCantChangeUnexportFields(t *testing.T) {
+	type Object struct {
+		str string
+	}
+	obj := &Object{}
+
+	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+		if p == ".str" {
+			s2 := "B"
+			v.Elem().Set(reflect.ValueOf(s2))
+		}
+		return true
+	})
+	if obj.str == "B" {
+		t.Fatal("bad change")
+	}
+}
+
+func TestVisitOnce(t *testing.T) {
+	type Object2 struct {
+		Str string
+	}
+	type Object struct {
+		O *Object2
+	}
+	obj := &Object{O: &Object2{}}
+	var count int
+	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+		if p == ".O" {
+			count++
+			if tp != reflect.TypeOf(new(Object2)) {
+				t.Fatal("bad type")
+			}
+		}
+		return true
+	})
+	if count != 1 {
+		t.Fatal("bad visit")
+	}
+}
+
+func TestChangeRootField(t *testing.T) {
+	type Object struct {
+		Str string
+	}
+	obj := &Object{}
+	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+		if tp == reflect.TypeOf(obj) {
+			v.Elem().Elem().FieldByName("Str").SetString("A")
+		}
+		return true
+	})
+	if obj.Str != "A" {
+		t.Fatal("bad change root")
+	}
 }

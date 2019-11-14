@@ -715,6 +715,10 @@ func buildPath(steps []string) string {
 	return strings.Join(list, "")
 }
 
+func isNotRootPath(path string) bool {
+	return len(path) > 0
+}
+
 // in case of type conversion fail
 func setContainerValue(c reflect.Value, v reflect.Value) {
 	switch v.Kind() {
