@@ -293,7 +293,11 @@ func walkVal(steps []string, t reflect.Type, v reflect.Value, visit Visitor) boo
 			if v.Elem().Kind() == reflect.Ptr && !v.Elem().IsNil() {
 				isContinue = walkVal(steps, v.Elem().Elem().Type(), v.Elem().Elem(), visit)
 			} else if v.Elem().Kind() != reflect.Ptr {
-				isContinue = walkVal(steps, v.Elem().Type(), v.Elem(), visit)
+				/* create reference for non ptr type so that i can modify */
+				ref := reflect.New(v.Elem().Type())
+				ref.Elem().Set(v.Elem())
+				isContinue = walkVal(steps, ref.Elem().Type(), ref.Elem(), visit)
+				v.Set(ref.Elem())
 			}
 			return isContinue
 		}

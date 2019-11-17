@@ -1,6 +1,7 @@
 package fixture
 
 import (
+	"encoding/json"
 	"reflect"
 	"strconv"
 	"testing"
@@ -458,5 +459,109 @@ func TestChangeRootField(t *testing.T) {
 	})
 	if obj.Str != "A" {
 		t.Fatal("bad change root")
+	}
+}
+
+func stringPtr(s string) *string { return &s }
+
+func TestInterfaceNonPtr(t *testing.T) {
+	type Node struct {
+		Name *string
+	}
+	type Main struct {
+		ID       *string
+		Children []*Node
+	}
+	type _Resp struct {
+		Data interface{}
+	}
+	obj := Main{ID: stringPtr("ID")}
+	obj.Children = append(obj.Children, &Node{Name: stringPtr("name1")})
+	obj.Children = append(obj.Children, &Node{Name: stringPtr("name2")})
+
+	res := &_Resp{Data: obj}
+	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+		if path == ".Data.Children[1].Name" {
+			v.Elem().Elem().SetString("X")
+		}
+		return true
+	})
+	data, _ := json.Marshal(res)
+	s := &struct{ Data Main }{}
+	json.Unmarshal(data, s)
+	if *s.Data.Children[1].Name != "X" {
+		t.Fatal("bad")
+	}
+}
+
+func TestInterfacePtr(t *testing.T) {
+	type Node struct {
+		Name *string
+	}
+	type Main struct {
+		ID       *string
+		Children []*Node
+	}
+	type _Resp struct {
+		Data interface{}
+	}
+	obj := Main{ID: stringPtr("ID")}
+	obj.Children = append(obj.Children, &Node{Name: stringPtr("name1")})
+	obj.Children = append(obj.Children, &Node{Name: stringPtr("name2")})
+
+	res := &_Resp{Data: &obj}
+	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+		if path == ".Data.Children[1].Name" {
+			v.Elem().Elem().SetString("X")
+		}
+		return true
+	})
+	data, _ := json.Marshal(res)
+	s := &struct{ Data Main }{}
+	json.Unmarshal(data, s)
+	if *s.Data.Children[1].Name != "X" {
+		t.Fatal("bad")
+	}
+}
+
+func TestInterfaceNonSimplePtr(t *testing.T) {
+	type _Resp struct {
+		Data interface{}
+	}
+	res := &_Resp{Data: "HELLO"}
+	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+		t.Log(path, tp)
+		if path == ".Data" {
+			sv := reflect.ValueOf("X")
+			v.Elem().Set(sv)
+		}
+		return true
+	})
+	data, _ := json.Marshal(res)
+	s := &struct{ Data string }{}
+	json.Unmarshal(data, s)
+	if s.Data != "X" {
+		t.Fatal("bad")
+	}
+}
+
+func TestInterfaceSimplePtr(t *testing.T) {
+	type _Resp struct {
+		Data interface{}
+	}
+	res := &_Resp{Data: stringPtr("T")}
+	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+		t.Log(path, tp)
+		if path == ".Data" {
+			sv := reflect.ValueOf(stringPtr("X"))
+			v.Elem().Set(sv)
+		}
+		return true
+	})
+	data, _ := json.Marshal(res)
+	s := &struct{ Data string }{}
+	json.Unmarshal(data, s)
+	if s.Data != "X" {
+		t.Fatal("bad")
 	}
 }
