@@ -23,15 +23,31 @@ var (
 
 // Print with color
 func Print(format string, args ...interface{}) {
-	fmt.Printf(rewriteFormat(format), colorArgs(args...)...)
+	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false))...)
 }
 
 // PrintJSON complex value to json with color
 func PrintJSON(format string, args ...interface{}) {
-	fmt.Printf(rewriteFormat(format), colorArgs(jsonArgs(args...)...)...)
+	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, true))...)
 }
 
-func rewriteFormat(format string) string {
+func rewriteArgsToString(format string, args []interface{}, complextToJSON bool) []interface{} {
+	rewriteFormat(format, func(idx int, fmtToken string) {
+		if complextToJSON && isComplexValue(args[idx]) {
+			args[idx] = json.UnsafeMarshalString(args[idx])
+		} else {
+			args[idx] = fmt.Sprintf(fmtToken, args[idx])
+		}
+	})
+	return args
+}
+
+func rewriteFormat(format string, cb func(int, string)) string {
+	if cb == nil {
+		cb = func(int, string) {}
+	}
+	var idx int
+
 	var newfmt []rune
 	runes := []rune(format)
 	for i := 0; i < len(runes); {
@@ -47,6 +63,8 @@ func rewriteFormat(format string) string {
 					break
 				}
 			}
+			cb(idx, string(runes[i:j+1]))
+			idx++
 			newfmt = append(newfmt, '%', 's')
 			i = j + 1
 			continue
@@ -58,7 +76,7 @@ func rewriteFormat(format string) string {
 	return string(newfmt)
 }
 
-func colorArgs(args ...interface{}) []interface{} {
+func colorArgs(args []interface{}) []interface{} {
 	ret := make([]interface{}, len(args))
 	for i, v := range args {
 		ret[i] = colorFuncs[i%len(colorFuncs)](v)
@@ -80,16 +98,4 @@ func isComplexValue(v interface{}) bool {
 	default:
 		return false
 	}
-}
-
-func jsonArgs(args ...interface{}) []interface{} {
-	ret := make([]interface{}, len(args))
-	for i, v := range args {
-		if isComplexValue(v) {
-			ret[i] = json.UnsafeMarshalString(v)
-		} else {
-			ret[i] = v
-		}
-	}
-	return ret
 }
