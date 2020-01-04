@@ -11,10 +11,10 @@ import (
 var (
 	colorFuncs = []func(a ...interface{}) string{
 		color.New(color.FgGreen).SprintFunc(),
+		color.New(color.FgCyan).SprintFunc(),
+		color.New(color.FgMagenta).SprintFunc(),
 		color.New(color.FgYellow).SprintFunc(),
 		color.New(color.FgRed).SprintFunc(),
-		color.New(color.FgMagenta).SprintFunc(),
-		color.New(color.FgCyan).SprintFunc(),
 		color.New(color.FgBlue).SprintFunc(),
 		color.New(color.FgWhite, color.BgBlack).SprintFunc(),
 		color.New(color.FgBlack, color.BgWhite).SprintFunc(),
@@ -51,11 +51,13 @@ func rewriteFormat(format string, cb func(int, string)) string {
 	var newfmt []rune
 	runes := []rune(format)
 	for i := 0; i < len(runes); {
+		/* skip double % */
 		if runes[i] == '%' && i < len(runes)-1 && runes[i+1] == '%' {
 			newfmt = append(newfmt, runes[i], runes[i+1])
 			i += 2
 			continue
 		}
+		/* find format token like %[^a-zA-Z] */
 		if runes[i] == '%' {
 			j := i + 1
 			for ; j < len(runes); j++ {
@@ -72,7 +74,10 @@ func rewriteFormat(format string, cb func(int, string)) string {
 		newfmt = append(newfmt, runes[i])
 		i++
 	}
-	newfmt = append(newfmt, '\n')
+	/* always end with newline */
+	if newfmt[len(newfmt)-1] != '\n' {
+		newfmt = append(newfmt, '\n')
+	}
 	return string(newfmt)
 }
 
