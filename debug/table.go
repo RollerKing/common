@@ -1,40 +1,44 @@
 package debug
 
 import (
-	"fmt"
+	gotable "github.com/jedib0t/go-pretty/table"
+	"github.com/jedib0t/go-pretty/text"
 	"os"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 type Table interface {
-	SetHeader(v ...string) Table
+	SetHeader(v ...interface{}) Table
 	AddRow(v ...interface{}) Table
 	Render()
 }
 
 type table struct {
-	tw *tablewriter.Table
+	tw gotable.Writer
 }
 
 func NewTable() Table {
-	return &table{
-		tw: tablewriter.NewWriter(os.Stdout),
+	t := &table{
+		tw: gotable.NewWriter(),
 	}
+	style := gotable.StyleColoredBright
+	style.Format.Header = text.FormatDefault
+	t.tw.SetStyle(style)
+	t.tw.SetOutputMirror(os.Stdout)
+	return t
 }
 
-func (t *table) SetHeader(v ...string) Table {
-	t.tw.SetHeader(v)
+func (t *table) SetHeader(v ...interface{}) Table {
+	t.tw.AppendHeader(cellsToRow(v...))
 	return t
 }
 
 func (t *table) AddRow(cells ...interface{}) Table {
-	row := make([]string, len(cells))
-	for i, val := range cells {
-		row[i] = fmt.Sprint(val)
-	}
-	t.tw.Append(row)
+	t.tw.AppendRows([]gotable.Row{cellsToRow(cells...)})
 	return t
+}
+
+func cellsToRow(list ...interface{}) gotable.Row {
+	return gotable.Row(list)
 }
 
 func (t *table) Render() {

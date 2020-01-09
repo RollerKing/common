@@ -4,6 +4,8 @@ go 1.12
 
 require (
 	github.com/fatih/color v1.7.0
+	github.com/go-openapi/strfmt v0.19.4 // indirect
+	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/json-iterator/go v1.1.9
 	github.com/manifoldco/promptui v0.6.0
 	github.com/mattn/go-colorable v0.1.4 // indirect
