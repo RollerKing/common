@@ -5,8 +5,8 @@ import (
 	"reflect"
 )
 
-// ShouldSuccess would panic if err is not nil
-func ShouldSuccess(err error) {
+// ShouldBeNil would panic if err is not nil
+func ShouldBeNil(err error) {
 	if err == nil {
 		return
 	}
