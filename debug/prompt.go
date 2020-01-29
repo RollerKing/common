@@ -7,11 +7,16 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
+type SelectFn func(*promptui.Select)
+
 // Select from menu
-func Select(label string, choices []string) (int, string) {
+func Select(label string, choices []string, opt ...SelectFn) (int, string) {
 	prompt := promptui.Select{
 		Label: label,
 		Items: choices,
+	}
+	for _, fn := range opt {
+		fn(&prompt)
 	}
 
 	_, result, err := prompt.Run()
