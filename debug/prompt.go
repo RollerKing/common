@@ -7,7 +7,9 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-type SelectFn func(*promptui.Select)
+type SelectWidget = promptui.Select
+
+type SelectFn func(*SelectWidget)
 
 // Select from menu
 func Select(label string, choices []string, opt ...SelectFn) (int, string) {
@@ -19,11 +21,7 @@ func Select(label string, choices []string, opt ...SelectFn) (int, string) {
 		fn(&prompt)
 	}
 
-	_, result, err := prompt.Run()
-
-	if err != nil {
-		panic(fmt.Sprintf("When select %s:%v", label, err))
-	}
+	_, result, _ := prompt.Run()
 
 	for i, v := range choices {
 		if v == result {

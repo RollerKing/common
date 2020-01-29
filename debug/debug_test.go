@@ -10,7 +10,7 @@ func (MyErr) Error() string {
 	return "err"
 }
 
-func TestShouldSuccess(t *testing.T) {
+func TestShouldBeNil(t *testing.T) {
 	var err error
 	isPanic := func(err error) (y bool) {
 		defer func() {
@@ -18,7 +18,7 @@ func TestShouldSuccess(t *testing.T) {
 				y = true
 			}
 		}()
-		ShouldSuccess(err)
+		ShouldBeNil(err)
 		return
 	}
 

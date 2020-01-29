@@ -26,9 +26,23 @@ func Print(format string, args ...interface{}) {
 	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false))...)
 }
 
+// Debug print when debug on
+func Debug(format string, args ...interface{}) {
+	if IsDebug() {
+		Print(format, args...)
+	}
+}
+
 // PrintJSON complex value to json with color
 func PrintJSON(format string, args ...interface{}) {
 	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, true))...)
+}
+
+// DebugJSON print when debug on
+func DebugJSON(format string, args ...interface{}) {
+	if IsDebug() {
+		PrintJSON(format, args...)
+	}
 }
 
 func rewriteArgsToString(format string, args []interface{}, complextToJSON bool) []interface{} {
