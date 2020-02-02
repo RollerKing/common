@@ -15,3 +15,14 @@ func ShouldBeNil(err error) {
 		panic(fmt.Sprintf("[%v]%v", v.Type(), err))
 	}
 }
+
+// AllowPanic swallow panic
+func AllowPanic(fn func()) (isPanicOccur bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			isPanicOccur = true
+		}
+	}()
+	fn()
+	return
+}
