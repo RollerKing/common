@@ -42,12 +42,11 @@ func AllowPanic(fn func()) (isPanicOccur bool) {
 }
 
 // ShouldSuccessAtLeastOne excute functions one by one until success
-func ShouldSuccessAtLeastOne(fnList ...func()) (successAtLeastOne bool) {
+func ShouldSuccessAtLeastOne(fnList ...func()) {
 	for _, fn := range fnList {
 		if !AllowPanic(fn) {
-			successAtLeastOne = true
-			break
+			return
 		}
 	}
-	return
+	panic("all function failed")
 }
