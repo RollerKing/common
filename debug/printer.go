@@ -23,6 +23,10 @@ var (
 
 // Print with color
 func Print(format string, args ...interface{}) {
+	if len(args) == 0 {
+		fmt.Println(format)
+		return
+	}
 	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false))...)
 }
 
@@ -35,6 +39,10 @@ func Debug(format string, args ...interface{}) {
 
 // PrintJSON complex value to json with color
 func PrintJSON(format string, args ...interface{}) {
+	if len(args) == 0 {
+		fmt.Println(format)
+		return
+	}
 	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, true))...)
 }
 
