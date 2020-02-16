@@ -55,6 +55,8 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
+github.com/fatih/color v1.9.0 h1:8xPHl4/q1VyqGIPif1F+1V3Y3lSmrq01EabUW3CoW5s=
+github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/frankban/quicktest v1.4.1/go.mod h1:36zfPVQyHxymz4cH7wlDmVwDrJuljRB60qkgn7rorfQ=
 github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8 h1:DujepqpGd1hyOd7aW59XpK7Qymp8iy83xq74fLr21is=
@@ -154,6 +156,8 @@ github.com/qjpcpu/go-prettyjson v0.0.0-20180807071930-15ac12028a3b h1:5qQILWH0Bu
 github.com/qjpcpu/go-prettyjson v0.0.0-20180807071930-15ac12028a3b/go.mod h1:wEiS6j1KlHktfJk3ft20iJcQRWeNSg54DTM9vaIsan8=
 github.com/qjpcpu/log v0.0.0-20190430025042-94db3a79b5be h1:qEq/PoWA8t53h51P8ZEDkEH0jWCZQuZPJbWJ9UJit+E=
 github.com/qjpcpu/log v0.0.0-20190430025042-94db3a79b5be/go.mod h1:jSwIqnFDmwbRrvYLvEVh0gIjUNnbHfFva2P7Iv4J9So=
+github.com/qjpcpu/qjson v0.0.0-20200216072844-3c780e3b1f12 h1:a372m5jkxPNbkIrsKHX8gw6uwFpX247hsuDBVFiQSS0=
+github.com/qjpcpu/qjson v0.0.0-20200216072844-3c780e3b1f12/go.mod h1:u96wzeK9lMLiAVqPsLJ1XvNm4Y1+tkq+wWWeVy0G3DA=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a h1:9ZKAASQSHhDYGoxY8uLVpewe1GDZ2vu2Tr/vTdVAkFQ=
 github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=

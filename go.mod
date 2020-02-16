@@ -11,7 +11,7 @@ require (
 	github.com/bsm/sarama-cluster v2.1.15+incompatible
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
-	github.com/fatih/color v1.7.0
+	github.com/fatih/color v1.9.0
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-openapi/strfmt v0.19.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
@@ -21,14 +21,13 @@ require (
 	github.com/jedib0t/go-pretty v4.3.0+incompatible
 	github.com/json-iterator/go v1.1.9
 	github.com/manifoldco/promptui v0.6.0
-	github.com/mattn/go-colorable v0.1.4 // indirect
-	github.com/mattn/go-isatty v0.0.11 // indirect
 	github.com/mna/redisc v1.1.6
 	github.com/mozillazg/go-pinyin v0.16.0
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/qjpcpu/filelog v0.0.0-20190530141006-3bfd88b7965b
 	github.com/qjpcpu/go-prettyjson v0.0.0-20180807071930-15ac12028a3b
 	github.com/qjpcpu/log v0.0.0-20190430025042-94db3a79b5be
+	github.com/qjpcpu/qjson v0.0.0-20200216072844-3c780e3b1f12
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/tidwall/gjson v1.3.5

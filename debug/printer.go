@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/fatih/color"
-	"github.com/qjpcpu/common/json"
+	"github.com/qjpcpu/qjson"
 )
 
 var (
@@ -27,7 +27,7 @@ func Print(format string, args ...interface{}) {
 		fmt.Println(format)
 		return
 	}
-	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false))...)
+	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false), nil)...)
 }
 
 // Debug print when debug on
@@ -43,7 +43,11 @@ func PrintJSON(format string, args ...interface{}) {
 		fmt.Println(format)
 		return
 	}
-	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, true))...)
+	withoutColor := make(map[int]bool)
+	for i := range args {
+		withoutColor[i] = isComplexValue(args[i])
+	}
+	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, true), withoutColor)...)
 }
 
 // DebugJSON print when debug on
@@ -56,7 +60,7 @@ func DebugJSON(format string, args ...interface{}) {
 func rewriteArgsToString(format string, args []interface{}, complextToJSON bool) []interface{} {
 	rewriteFormat(format, func(idx int, fmtToken string) {
 		if complextToJSON && isComplexValue(args[idx]) {
-			args[idx] = json.UnsafeMarshalString(args[idx])
+			args[idx] = string(qjson.PrettyMarshal(args[idx]))
 		} else {
 			args[idx] = fmt.Sprintf(fmtToken, args[idx])
 		}
@@ -103,9 +107,13 @@ func rewriteFormat(format string, cb func(int, string)) string {
 	return string(newfmt)
 }
 
-func colorArgs(args []interface{}) []interface{} {
+func colorArgs(args []interface{}, withoutColor map[int]bool) []interface{} {
 	ret := make([]interface{}, len(args))
 	for i, v := range args {
+		if withoutColor != nil && withoutColor[i] {
+			ret[i] = args[i]
+			continue
+		}
 		ret[i] = colorFuncs[i%len(colorFuncs)](v)
 	}
 	return ret
