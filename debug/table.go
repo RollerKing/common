@@ -9,8 +9,11 @@ import (
 type Table interface {
 	SetHeader(v ...interface{}) Table
 	AddRow(v ...interface{}) Table
+	SetStyle(Style) Table
 	Render()
 }
+
+type Style = gotable.Style
 
 type table struct {
 	tw gotable.Writer
@@ -20,10 +23,15 @@ func NewTable() Table {
 	t := &table{
 		tw: gotable.NewWriter(),
 	}
-	style := gotable.StyleColoredBright
+	style := gotable.StyleDefault
 	style.Format.Header = text.FormatDefault
 	t.tw.SetStyle(style)
 	t.tw.SetOutputMirror(os.Stdout)
+	return t
+}
+
+func (t *table) SetStyle(style Style) Table {
+	t.tw.SetStyle(style)
 	return t
 }
 
