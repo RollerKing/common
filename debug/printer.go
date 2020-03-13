@@ -6,6 +6,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/qjpcpu/qjson"
+	"time"
 )
 
 var (
@@ -28,6 +29,16 @@ func Print(format string, args ...interface{}) {
 		return
 	}
 	fmt.Printf(rewriteFormat(format, nil), colorArgs(rewriteArgsToString(format, args, false), nil)...)
+}
+
+// PrintWithTime print with time
+func PrintWithTime(format string, args ...interface{}) {
+	Print(timeStr(time.Now())+" "+format, args...)
+}
+
+// PrintJSONWithTime print with time
+func PrintJSONWithTime(format string, args ...interface{}) {
+	PrintJSON(timeStr(time.Now())+" "+format, args...)
 }
 
 // Debug print when debug on
@@ -133,4 +144,8 @@ func isComplexValue(v interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func timeStr(tm time.Time) string {
+	return tm.Format("15:04:05")
 }
