@@ -1,7 +1,9 @@
 package debug
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/manifoldco/promptui"
@@ -83,4 +85,9 @@ func Input(label string, validateFunc func(string) error) string {
 	}
 
 	return result
+}
+
+func PressEnterToContinue() {
+	fmt.Print("Press Enter to continue...")
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

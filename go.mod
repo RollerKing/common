@@ -10,6 +10,7 @@ require (
 	github.com/astaxie/beego v1.12.0
 	github.com/bsm/sarama-cluster v2.1.15+incompatible
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
+	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/fatih/color v1.9.0
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
