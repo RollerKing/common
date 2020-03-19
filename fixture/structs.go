@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -603,6 +604,7 @@ func IsRefType(tp reflect.Type) bool {
  random helper
 */
 var r = rand.New(rand.NewSource(time.Now().UnixNano()))
+var idGen = newSimpleIDGenerator()
 
 func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 	if tp.Kind() == reflect.Ptr {
@@ -618,10 +620,9 @@ func defaultPathToValueFunc(path string, tp reflect.Type) (interface{}, bool) {
 		return RLink(), true
 	case strings.Contains(finalNode, "id"):
 		if IsIntegerType(tp) {
-			return RNumber(time.Now().AddDate(0, -1, 0).Unix(), time.Now().Unix()), true
+			return idGen.Next(), true
 		} else if IsStringType(tp) {
-			n := RNumber(time.Now().AddDate(0, -1, 0).Unix(), time.Now().Unix())
-			return strconv.FormatInt(n, 10), true
+			return strconv.FormatInt(idGen.Next(), 10), true
 		}
 	case finalNode == "status":
 		if IsIntegerType(tp) {
@@ -759,4 +760,18 @@ func mergeFuncs(fn ...PathToValueFunc) PathToValueFunc {
 
 func randomString() string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("%v:%v:%v", time.Now(), time.Now().Nanosecond(), r.Float32()))))[:8]
+}
+
+type idgenerator interface {
+	Next() int64
+}
+
+type simpleIDGenerator struct{ seed int64 }
+
+func newSimpleIDGenerator() idgenerator {
+	return &simpleIDGenerator{seed: time.Now().UnixNano()}
+}
+
+func (g *simpleIDGenerator) Next() int64 {
+	return atomic.AddInt64(&g.seed, 1)
 }
