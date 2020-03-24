@@ -6,26 +6,29 @@ import (
 )
 
 // ShouldBeNil would panic if err is not nil
-func ShouldBeNil(err error) {
+func ShouldBeNil(err error, msgAndArgs ...interface{}) {
 	if err == nil {
 		return
 	}
 	v := reflect.ValueOf(err)
 	if v.Kind() != reflect.Ptr || !v.IsNil() {
+		printMsgArgs(msgAndArgs...)
 		panic(fmt.Sprintf("[%v]%v", v.Type(), err))
 	}
 }
 
 // ShouldBeTrue would panic if codition is false
-func ShouldBeTrue(condition bool) {
+func ShouldBeTrue(condition bool, msg ...interface{}) {
 	if !condition {
+		printMsgArgs(msg...)
 		panic("should be true")
 	}
 }
 
 // ShouldEqual would panic if not equal
-func ShouldEqual(a, b interface{}) {
+func ShouldEqual(a, b interface{}, msg ...interface{}) {
 	if !reflect.DeepEqual(a, b) {
+		printMsgArgs(msg...)
 		panic(fmt.Sprintf("%v != %v", a, b))
 	}
 }
@@ -49,4 +52,14 @@ func ShouldSuccessAtLeastOne(fnList ...func()) {
 		}
 	}
 	panic("all function failed")
+}
+
+func printMsgArgs(args ...interface{}) {
+	switch len(args) {
+	case 0:
+	case 1:
+		Print("%+v", args[0])
+	default:
+		Print(args[0].(string), args[1:]...)
+	}
 }

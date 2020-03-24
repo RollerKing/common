@@ -18,7 +18,7 @@ func TestShouldBeNil(t *testing.T) {
 				y = true
 			}
 		}()
-		ShouldBeNil(err)
+		ShouldBeNil(err,"but get %v",err)
 		return
 	}
 
