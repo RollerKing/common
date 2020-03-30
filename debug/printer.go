@@ -70,6 +70,9 @@ func DebugJSON(format string, args ...interface{}) {
 
 func rewriteArgsToString(format string, args []interface{}, complextToJSON bool) []interface{} {
 	rewriteFormat(format, func(idx int, fmtToken string) {
+		if idx >= len(args) {
+			return
+		}
 		if complextToJSON && isComplexValue(args[idx]) {
 			args[idx] = string(qjson.PrettyMarshal(args[idx]))
 		} else {
