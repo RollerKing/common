@@ -769,7 +769,7 @@ type idgenerator interface {
 type simpleIDGenerator struct{ seed int64 }
 
 func newSimpleIDGenerator() idgenerator {
-	return &simpleIDGenerator{seed: 1}
+	return &simpleIDGenerator{seed: time.Now().Unix()}
 }
 
 func (g *simpleIDGenerator) Next() int64 {
