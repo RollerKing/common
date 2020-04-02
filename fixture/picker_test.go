@@ -2,8 +2,10 @@ package fixture
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -155,12 +157,10 @@ func TestWalkStop(t *testing.T) {
 	}
 	x := &X{Name: "name", Age: 23}
 	x1 := &X{}
-	Walk(x, func(p string, tp reflect.Type, i ValuePtr) bool {
+	Walk(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
 		if p == ".Name" {
 			x1.Name = i.Elem().String()
-			return false
-		} else {
-			return true
+			ctx.Stop()
 		}
 	})
 	if x1.Name != "name" {
@@ -179,12 +179,11 @@ func TestWalkOnce(t *testing.T) {
 	cnt := 0
 	x := &X{Name: &str}
 	x1 := &X{}
-	Walk(x, func(p string, tp reflect.Type, i ValuePtr) bool {
+	Walk(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
 		if p == ".Name" {
 			x1.Name = i.Elem().Interface().(*string)
 			cnt++
 		}
-		return true
 	})
 	if *x1.Name != "ptr" {
 		t.Fatal("bad walk")
@@ -211,36 +210,35 @@ func TestWalkLeaf(t *testing.T) {
 			{Num: 1},
 			{Num: 2},
 		}}
-	WalkLeaf(x, func(p string, tp reflect.Type, i ValuePtr) bool {
+	WalkLeaf(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
 		switch p {
 		case ".Name":
 			if i.Elem().String() != "name" {
 				t.Fatal("bad walk")
 			}
-			return true
+			return
 		case ".Map.key":
 			if i.Elem().Interface().(int) != 12 {
 				t.Fatal("bad walk")
 			}
-			return true
+			return
 		case ".List[0].Num":
 			if i.Elem().Interface().(int) != 0 {
 				t.Fatal("bad walk")
 			}
-			return true
+			return
 		case ".List[1].Num":
 			if i.Elem().Interface().(int) != 1 {
 				t.Fatal("bad walk")
 			}
-			return true
+			return
 		case ".List[2].Num":
 			if i.Elem().Interface().(int) != 2 {
 				t.Fatal("bad walk")
 			}
-			return true
+			return
 		}
 		t.Fatal("should not come here")
-		return true
 	})
 
 }
@@ -271,11 +269,10 @@ func TestSetNil(t *testing.T) {
 	s := "A"
 	obj := &Object{StringPtr: &s}
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		if p == ".StringPtr" {
 			v.Elem().Set(reflect.Zero(t))
 		}
-		return true
 	})
 
 	if obj.StringPtr != nil {
@@ -294,7 +291,7 @@ func TestChangeSimpleValues(t *testing.T) {
 	i := 1
 	obj := &Object{StringPtr: &s, NumPtr: &i}
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		if p == ".StringPtr" {
 			s2 := "B"
 			v.Elem().Set(reflect.ValueOf(&s2))
@@ -306,7 +303,6 @@ func TestChangeSimpleValues(t *testing.T) {
 		} else if p == ".String" {
 			v.Elem().SetString("BTX")
 		}
-		return true
 	})
 
 	if *obj.StringPtr != "B" || *obj.NumPtr != 2 || obj.String != "BTX" || obj.Num != 100 {
@@ -325,7 +321,7 @@ func TestChangeStruct(t *testing.T) {
 	}
 	obj := &Object{OPtr: &Object2{}}
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		if p == ".O.StringPtr" {
 			s2 := "B"
 			v.Elem().Set(reflect.ValueOf(&s2))
@@ -338,14 +334,13 @@ func TestChangeStruct(t *testing.T) {
 		} else if p == ".OPtr.String" {
 			v.Elem().SetString("B")
 		}
-		return true
 	})
 
 	if *obj.O.StringPtr != "B" || obj.O.String != "B" || obj.OPtr.String != "B" || *obj.OPtr.StringPtr != "B" {
 		t.Fatal("bad change")
 	}
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		if p == ".O" {
 			s := "A"
 			o2 := Object2{String: "A", StringPtr: &s}
@@ -355,7 +350,6 @@ func TestChangeStruct(t *testing.T) {
 			o2 := &Object2{String: "A", StringPtr: &s}
 			v.Elem().Set(reflect.ValueOf(o2))
 		}
-		return true
 	})
 
 	if *obj.O.StringPtr != "A" || obj.O.String != "A" || obj.OPtr.String != "A" || *obj.OPtr.StringPtr != "A" {
@@ -377,7 +371,7 @@ func TestChangeSlice(t *testing.T) {
 	obj.Ptr = append(obj.Ptr, &Object2{String: "A", StringPtr: strPtr("A")})
 	obj.List = append(obj.List, Object2{String: "A", StringPtr: strPtr("A")})
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		n := LastNodeOfPath(p)
 		if n == "StringPtr" {
 			s2 := "B"
@@ -386,18 +380,16 @@ func TestChangeSlice(t *testing.T) {
 			s2 := "B"
 			v.Elem().Set(reflect.ValueOf(s2))
 		}
-		return true
 	})
 
 	if obj.Ptr[0].String != "B" || *obj.Ptr[0].StringPtr != "B" || obj.List[0].String != "B" || *obj.List[0].StringPtr != "B" {
 		t.Fatal("bad change")
 	}
 
-	Walk(obj, func(p string, t reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, t reflect.Type, v ValuePtr) {
 		if p == ".Ptr" {
 			v.Elem().Set(reflect.Zero(t))
 		}
-		return true
 	})
 
 	if obj.Ptr != nil {
@@ -411,12 +403,11 @@ func TestCantChangeUnexportFields(t *testing.T) {
 	}
 	obj := &Object{}
 
-	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, tp reflect.Type, v ValuePtr) {
 		if p == ".str" {
 			s2 := "B"
 			v.Elem().Set(reflect.ValueOf(s2))
 		}
-		return true
 	})
 	if obj.str == "B" {
 		t.Fatal("bad change")
@@ -432,14 +423,13 @@ func TestVisitOnce(t *testing.T) {
 	}
 	obj := &Object{O: &Object2{}}
 	var count int
-	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, tp reflect.Type, v ValuePtr) {
 		if p == ".O" {
 			count++
 			if tp != reflect.TypeOf(new(Object2)) {
 				t.Fatal("bad type")
 			}
 		}
-		return true
 	})
 	if count != 1 {
 		t.Fatal("bad visit")
@@ -451,11 +441,10 @@ func TestChangeRootField(t *testing.T) {
 		Str string
 	}
 	obj := &Object{}
-	Walk(obj, func(p string, tp reflect.Type, v ValuePtr) bool {
+	Walk(obj, func(ctx *VisitCtx, p string, tp reflect.Type, v ValuePtr) {
 		if tp == reflect.TypeOf(obj) {
 			v.Elem().Elem().FieldByName("Str").SetString("A")
 		}
-		return true
 	})
 	if obj.Str != "A" {
 		t.Fatal("bad change root")
@@ -480,11 +469,10 @@ func TestInterfaceNonPtr(t *testing.T) {
 	obj.Children = append(obj.Children, &Node{Name: stringPtr("name2")})
 
 	res := &_Resp{Data: obj}
-	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+	Walk(res, func(ctx *VisitCtx, path string, tp reflect.Type, v ValuePtr) {
 		if path == ".Data.Children[1].Name" {
 			v.Elem().Elem().SetString("X")
 		}
-		return true
 	})
 	data, _ := json.Marshal(res)
 	s := &struct{ Data Main }{}
@@ -510,11 +498,10 @@ func TestInterfacePtr(t *testing.T) {
 	obj.Children = append(obj.Children, &Node{Name: stringPtr("name2")})
 
 	res := &_Resp{Data: &obj}
-	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+	Walk(res, func(ctx *VisitCtx, path string, tp reflect.Type, v ValuePtr) {
 		if path == ".Data.Children[1].Name" {
 			v.Elem().Elem().SetString("X")
 		}
-		return true
 	})
 	data, _ := json.Marshal(res)
 	s := &struct{ Data Main }{}
@@ -529,13 +516,12 @@ func TestInterfaceNonSimplePtr(t *testing.T) {
 		Data interface{}
 	}
 	res := &_Resp{Data: "HELLO"}
-	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+	Walk(res, func(ctx *VisitCtx, path string, tp reflect.Type, v ValuePtr) {
 		t.Log(path, tp)
 		if path == ".Data" {
 			sv := reflect.ValueOf("X")
 			v.Elem().Set(sv)
 		}
-		return true
 	})
 	data, _ := json.Marshal(res)
 	s := &struct{ Data string }{}
@@ -550,13 +536,12 @@ func TestInterfaceSimplePtr(t *testing.T) {
 		Data interface{}
 	}
 	res := &_Resp{Data: stringPtr("T")}
-	Walk(res, func(path string, tp reflect.Type, v ValuePtr) bool {
+	Walk(res, func(ctx *VisitCtx, path string, tp reflect.Type, v ValuePtr) {
 		t.Log(path, tp)
 		if path == ".Data" {
 			sv := reflect.ValueOf(stringPtr("X"))
 			v.Elem().Set(sv)
 		}
-		return true
 	})
 	data, _ := json.Marshal(res)
 	s := &struct{ Data string }{}
@@ -564,4 +549,95 @@ func TestInterfaceSimplePtr(t *testing.T) {
 	if s.Data != "X" {
 		t.Fatal("bad")
 	}
+}
+
+func TestWalkSkipStructChildren(t *testing.T) {
+	type XI struct {
+		Num int
+	}
+	type X struct {
+		Name string
+		Map  map[string]int
+		List []XI
+	}
+	x := &X{
+		Name: "name",
+		Map:  map[string]int{"key": 12},
+		List: []XI{
+			{Num: 0},
+			{Num: 1},
+			{Num: 2},
+		}}
+	Walk(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
+		if tp == reflect.TypeOf(x) {
+			ctx.SkipChildren()
+			return
+		}
+		t.Fatal("should not come here")
+	})
+}
+
+func TestWalkSkipStructSibling(t *testing.T) {
+	type XI struct {
+		Num int
+	}
+	type X struct {
+		Name string
+		Map  map[string]int
+		List []XI
+	}
+	x := &X{
+		Name: "name",
+		Map:  map[string]int{"key": 12},
+		List: []XI{
+			{Num: 0},
+			{Num: 1},
+			{Num: 2},
+		}}
+	Walk(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
+		if tp == reflect.TypeOf(x) {
+			return
+		}
+		if p == ".Name" {
+			ctx.SkipSiblings()
+			return
+		}
+		t.Fatal("should not come here")
+	})
+}
+
+func TestWalkSkipSliceSibling(t *testing.T) {
+	suite := assert.New(t)
+	type XI struct {
+		Num int
+	}
+	type X struct {
+		Name string
+		Map  map[string]int
+		List []XI
+	}
+	x := &X{
+		Name: "name",
+		Map:  map[string]int{"key": 12},
+		List: []XI{
+			{Num: 0},
+			{Num: 1},
+			{Num: 2},
+		}}
+	var meetFirtElem bool
+	Walk(x, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {
+		if tp == reflect.TypeOf(x) || p == ".Name" || p == ".Map" {
+			return
+		}
+		if strings.Contains(p, "1") {
+			ctx.SkipSiblings()
+			return
+		}
+		if strings.Contains(p, "0") {
+			meetFirtElem = true
+			return
+		}
+		t.Fatal("should not come here")
+	})
+	suite.True(meetFirtElem)
 }

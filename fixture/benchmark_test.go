@@ -29,7 +29,5 @@ func makeComplexObject() interface{} {
 }
 
 func walkObject(obj interface{}) {
-	Walk(obj, func(p string, tp reflect.Type, i ValuePtr) bool {
-		return true
-	})
+	Walk(obj, func(ctx *VisitCtx, p string, tp reflect.Type, i ValuePtr) {})
 }
