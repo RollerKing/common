@@ -3,7 +3,6 @@ package fixture
 import (
 	"errors"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -336,7 +335,7 @@ func walkStruct(steps []string, t reflect.Type, v reflect.Value, fn Visitor) boo
 
 func walkSlice(steps []string, et reflect.Type, v reflect.Value, fn Visitor) bool {
 	for i := 0; i < v.Len(); i++ {
-		if !walkVal(appendStep(steps, "[", strconv.FormatInt(int64(i), 10), "]"), et, v.Index(i), fn) {
+		if !walkVal(appendStep(steps, "[", intToString(i), "]"), et, v.Index(i), fn) {
 			return false
 		}
 	}

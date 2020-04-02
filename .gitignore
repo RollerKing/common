@@ -1,2 +1,5 @@
 /.idea
 /go.sum
+memprofile.out
+fixture.test
+profile.out

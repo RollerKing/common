@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unsafe"
 )
 
 // option for fill
@@ -216,7 +217,7 @@ func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.
 	}
 	if elemt.Kind() == reflect.Ptr {
 		for i := 0; i < size; i++ {
-			vv, ok := fl.getPathValue(appendStep(steps, "[", i, "]"), elemt)
+			vv, ok := fl.getPathValue(appendStep(steps, "[", intToString(i), "]"), elemt)
 			if ok {
 				if vv != nilValue {
 					ele := reflect.New(elemt.Elem())
@@ -225,14 +226,14 @@ func (fl *filler) initializeSlice(steps []string, t reflect.Type, elemt reflect.
 				}
 			} else {
 				ele := reflect.New(elemt.Elem())
-				fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
+				fl.initializeVal(appendStep(steps, "[", intToString(i), "]"), ele.Elem().Type(), ele.Elem(), level)
 				slicev.Index(i).Set(ele)
 			}
 		}
 	} else {
 		for i := 0; i < size; i++ {
 			ele := reflect.New(elemt)
-			fl.initializeVal(appendStep(steps, "[", i, "]"), elemt, ele.Elem(), level)
+			fl.initializeVal(appendStep(steps, "[", intToString(i), "]"), elemt, ele.Elem(), level)
 			slicev.Index(i).Set(ele.Elem())
 		}
 	}
@@ -246,7 +247,7 @@ func (fl *filler) initializeArray(steps []string, elemt reflect.Type, arrayv ref
 	}
 	if elemt.Kind() == reflect.Ptr {
 		for i := 0; i < size; i++ {
-			vv, ok := fl.getPathValue(appendStep(steps, "[", i, "]"), elemt)
+			vv, ok := fl.getPathValue(appendStep(steps, "[", intToString(i), "]"), elemt)
 			if ok {
 				if vv != nilValue {
 					ele := reflect.New(elemt.Elem())
@@ -255,14 +256,14 @@ func (fl *filler) initializeArray(steps []string, elemt reflect.Type, arrayv ref
 				}
 			} else {
 				ele := reflect.New(elemt.Elem())
-				fl.initializeVal(appendStep(steps, "[", i, "]"), ele.Elem().Type(), ele.Elem(), level)
+				fl.initializeVal(appendStep(steps, "[", intToString(i), "]"), ele.Elem().Type(), ele.Elem(), level)
 				arrayv.Index(i).Set(ele)
 			}
 		}
 	} else {
 		for i := 0; i < size; i++ {
 			ele := reflect.New(elemt)
-			fl.initializeVal(appendStep(steps, "[", i, "]"), elemt, ele.Elem(), level)
+			fl.initializeVal(appendStep(steps, "[", intToString(i), "]"), elemt, ele.Elem(), level)
 			arrayv.Index(i).Set(ele.Elem())
 		}
 	}
@@ -673,12 +674,12 @@ func isExported(fieldName string) bool {
 	return len(fieldName) > 0 && (fieldName[0] >= 'A' && fieldName[0] <= 'Z')
 }
 
-func appendStep(steps []string, stepArgs ...interface{}) []string {
-	var step string
+func appendStep(steps []string, stepArgs ...string) []string {
+	var step strings.Builder
 	for _, arg := range stepArgs {
-		step += fmt.Sprint(arg)
+		step.WriteString(arg)
 	}
-	return append(steps, step)
+	return append(steps, step.String())
 }
 
 type nilStruct struct{}
@@ -687,7 +688,7 @@ var nilValue = reflect.ValueOf(nilStruct{})
 
 // is like [number]
 func isIndexToken(s string) bool {
-	token := []byte(s)
+	token := stringToBytes(s)
 	if len(token) < 3 || token[0] != '[' || token[len(token)-1] != ']' {
 		return false
 	}
@@ -705,15 +706,16 @@ func isIndexToken(s string) bool {
 
 // convert steps [f1,f2,[1],f3] to path .f1.f2[1].f3
 func buildPath(steps []string) string {
-	var list []string
+	var b strings.Builder
 	for i, s := range steps {
 		if isIndexToken(s) && i > 0 {
-			list = append(list, s)
+			b.WriteString(s)
 		} else {
-			list = append(list, ".", s)
+			b.WriteString(".")
+			b.WriteString(s)
 		}
 	}
-	return strings.Join(list, "")
+	return b.String()
 }
 
 func isNotRootPath(path string) bool {
@@ -774,4 +776,12 @@ func newSimpleIDGenerator() idgenerator {
 
 func (g *simpleIDGenerator) Next() int64 {
 	return atomic.AddInt64(&g.seed, 1)
+}
+
+func stringToBytes(s string) []byte {
+	return *(*[]byte)(unsafe.Pointer(&s))
+}
+
+func intToString(i int) string {
+	return strconv.Itoa(i)
 }
