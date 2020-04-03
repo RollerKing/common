@@ -35,7 +35,7 @@ require (
 	github.com/manifoldco/promptui v0.6.0
 	github.com/mattn/go-runewidth v0.0.7 // indirect
 	github.com/mna/redisc v1.1.6
-	github.com/mozillazg/go-pinyin v0.16.0
+	github.com/mozillazg/go-pinyin v0.15.0
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/prometheus/client_golang v1.5.1 // indirect
