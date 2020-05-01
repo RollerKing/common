@@ -1,8 +1,9 @@
 package pinyin
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConvert(t *testing.T) {
@@ -71,4 +72,12 @@ func TestMatch(t *testing.T) {
 	substr, idx = FuzzyContain(`hello, 世界,`, "hello世j")
 	assert.NotEqual(t, -1, idx)
 	assert.Equal(t, "hello, 世界", substr)
+
+	substr, idx = FuzzyContain(`不允许,`, "yx")
+	assert.NotEqual(t, -1, idx)
+	assert.Equal(t, "允许", substr)
+
+	substr, idx = FuzzyContain(`网站,`, "wz")
+	assert.NotEqual(t, -1, idx)
+	assert.Equal(t, "网站", substr)
 }
