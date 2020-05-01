@@ -91,3 +91,8 @@ func PressEnterToContinue() {
 	fmt.Print("Press Enter to continue...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
+
+func PressEnterToContinueWithHint(hint string) {
+	fmt.Print(hint)
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
