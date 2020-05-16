@@ -68,7 +68,7 @@ func InputPassword(label string, validateFunc func(string) error) string {
 		panic(fmt.Sprintf("When input password %s:%v", label, err))
 	}
 
-	return result
+	return strings.TrimSpace(result)
 }
 
 // Input text
@@ -84,7 +84,7 @@ func Input(label string, validateFunc func(string) error) string {
 		panic(fmt.Sprintf("When input password %s:%v", label, err))
 	}
 
-	return result
+	return strings.TrimSpace(result)
 }
 
 func PressEnterToContinue() {
