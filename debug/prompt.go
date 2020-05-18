@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/manifoldco/promptui"
+	py "github.com/qjpcpu/common/pinyin"
 )
 
 type SelectWidget = promptui.Select
@@ -31,6 +32,21 @@ func Select(label string, choices []string, opt ...SelectFn) (int, string) {
 		}
 	}
 	return -1, ""
+}
+
+// SelectWithSearch from menu
+func SelectWithSearch(label string, choices []string) int {
+	searchFunction := func(s *SelectWidget) {
+		s.Size = 20
+		s.IsVimMode = true
+		s.HideSelected = true
+		s.Searcher = func(input string, index int) bool {
+			_, idx := py.FuzzyContain(choices[index], input)
+			return idx >= 0
+		}
+	}
+	idx, _ := Select(label, choices, searchFunction)
+	return idx
 }
 
 // Confirm with y/n
