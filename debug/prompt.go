@@ -111,6 +111,7 @@ type inputOption struct {
 	recentBucket string
 	currentFiles bool
 	suggestions  []Suggest
+	showHint     bool
 }
 
 func WithRecent(ns string) InputOption {
@@ -122,6 +123,12 @@ func WithRecent(ns string) InputOption {
 func WithCurrentFiles() InputOption {
 	return func(opt *inputOption) {
 		opt.currentFiles = true
+	}
+}
+
+func WithHint() InputOption {
+	return func(opt *inputOption) {
+		opt.showHint = true
 	}
 }
 
@@ -172,7 +179,11 @@ func Input(label string, fns ...InputOption) string {
 			}
 		}
 		for _, s := range suggestions {
-			ret = append(ret, s.convert())
+			sg := s.convert()
+			if !opt.showHint {
+				sg.Description = ""
+			}
+			ret = append(ret, sg)
 			sugMap[s.Text] = s
 		}
 		return
