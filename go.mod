@@ -41,6 +41,7 @@ require (
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/qjpcpu/filelog v0.0.0-20190530141006-3bfd88b7965b
 	github.com/qjpcpu/go-prettyjson v0.0.0-20180807071930-15ac12028a3b
+	github.com/qjpcpu/go-prompt v0.2.5
 	github.com/qjpcpu/qjson v0.0.0-20200216072844-3c780e3b1f12
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
@@ -50,6 +51,7 @@ require (
 	github.com/vanng822/css v0.0.0-20190504095207-a21e860bcd04 // indirect
 	github.com/vanng822/go-premailer v0.0.0-20191214114701-be27abe028fe
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
+	github.com/xujiajun/nutsdb v0.5.0
 	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	go.etcd.io/bbolt v1.3.3 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible

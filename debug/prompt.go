@@ -3,11 +3,21 @@ package debug
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
 	"github.com/manifoldco/promptui"
 	py "github.com/qjpcpu/common/pinyin"
+	"github.com/qjpcpu/go-prompt"
+)
+
+const (
+	ParamInputHintSymbol = ">"
+	PromptTypeFile       = "FILE   "
+	PromptTypeDir        = "DIR    "
+	PromptTypeDefault    = "DEFAULT"
+	PromptTypeHistory    = "HISTORY"
 )
 
 type SelectWidget = promptui.Select
@@ -87,20 +97,104 @@ func InputPassword(label string, validateFunc func(string) error) string {
 	return strings.TrimSpace(result)
 }
 
+type InputOption func(*inputOption)
+
+type Suggest struct {
+	Text string
+	Desc string
+}
+
+func (s Suggest) GetKey() string          { return s.Text }
+func (s Suggest) convert() prompt.Suggest { return prompt.Suggest{Text: s.Text, Description: s.Desc} }
+
+type inputOption struct {
+	recentBucket string
+	currentFiles bool
+	suggestions  []Suggest
+}
+
+func WithRecent(ns string) InputOption {
+	return func(opt *inputOption) {
+		opt.recentBucket = ns
+	}
+}
+
+func WithCurrentFiles() InputOption {
+	return func(opt *inputOption) {
+		opt.currentFiles = true
+	}
+}
+
+func WithSuggestions(list []Suggest) InputOption {
+	return func(opt *inputOption) {
+		opt.suggestions = list
+	}
+}
+
 // Input text
-func Input(label string, validateFunc func(string) error) string {
-	prompt := promptui.Prompt{
-		Label:    label,
-		Validate: validateFunc,
+func Input(label string, fns ...InputOption) string {
+	opt := new(inputOption)
+	for _, fn := range fns {
+		fn(opt)
 	}
-
-	result, err := prompt.Run()
-
-	if err != nil {
-		panic(fmt.Sprintf("When input password %s:%v", label, err))
+	var cache *DiskCache
+	sugMap := make(map[string]Suggest)
+	menu := func(d prompt.Document) (ret []prompt.Suggest) {
+		suggestions := opt.suggestions
+		if opt.currentFiles {
+			files, _ := ioutil.ReadDir(".")
+			for _, file := range files {
+				if strings.HasPrefix(file.Name(), ".") {
+					continue
+				}
+				suggestions = append(suggestions, Suggest{Text: file.Name(), Desc: fileDesc(file)})
+			}
+		}
+		if strings.TrimSpace(opt.recentBucket) != "" {
+			opt.recentBucket = strings.TrimSpace(opt.recentBucket)
+			cache, _ = NewHomeDiskCache()
+			cache.SetBucketSize(opt.recentBucket, 5)
+			var history []Suggest
+			cache.ListItem(opt.recentBucket, &history)
+			dup := make(map[string]*Suggest)
+			if len(history) > 0 {
+				for i, item := range history {
+					dup[item.Text] = &history[i]
+				}
+				for _, sug := range suggestions {
+					if v, ok := dup[sug.Text]; !ok {
+						history = append(history, sug)
+					} else {
+						v.Desc = sug.Desc
+					}
+				}
+				suggestions = history
+			}
+		}
+		for _, s := range suggestions {
+			ret = append(ret, s.convert())
+			sugMap[s.Text] = s
+		}
+		return
 	}
-
-	return strings.TrimSpace(result)
+	text, _ := prompt.Input(
+		label+" ",
+		menu,
+		prompt.OptionPrefixTextColor(prompt.Blue),
+	)
+	text = strings.TrimSpace(text)
+	if cache != nil {
+		defer cache.Close()
+		if text != "" {
+			sug := sugMap[text]
+			if sug.Text == "" {
+				sug.Text = text
+				sug.Desc = PromptTypeHistory
+			}
+			cache.AddItem(opt.recentBucket, sug)
+		}
+	}
+	return text
 }
 
 func PressEnterToContinue() {
@@ -111,4 +205,12 @@ func PressEnterToContinue() {
 func PressEnterToContinueWithHint(hint string) {
 	fmt.Print(hint)
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func fileDesc(file os.FileInfo) string {
+	tp := PromptTypeFile
+	if file.IsDir() {
+		tp = PromptTypeDir
+	}
+	return fmt.Sprintf("%s mod:%s", tp, file.ModTime().Format("2006-01-02 15:04:05"))
 }
