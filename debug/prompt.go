@@ -139,7 +139,12 @@ func WithSuggestions(list []Suggest) InputOption {
 }
 
 // Input text
-func Input(label string, fns ...InputOption) (text string, shouldExit bool) {
+func Input(label string, fns ...InputOption) string {
+	v, _ := InterruptableInput(label, fns...)
+	return v
+}
+
+func InterruptableInput(label string, fns ...InputOption) (text string, interrupted bool) {
 	opt := new(inputOption)
 	for _, fn := range fns {
 		fn(opt)
@@ -188,7 +193,7 @@ func Input(label string, fns ...InputOption) (text string, shouldExit bool) {
 		}
 		return
 	}
-	text, shouldExit = prompt.Input(
+	text, interrupted = prompt.Input(
 		label+" ",
 		menu,
 		prompt.OptionPrefixTextColor(prompt.Blue),
