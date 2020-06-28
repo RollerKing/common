@@ -139,7 +139,7 @@ func WithSuggestions(list []Suggest) InputOption {
 }
 
 // Input text
-func Input(label string, fns ...InputOption) string {
+func Input(label string, fns ...InputOption) (text string, shouldExit bool) {
 	opt := new(inputOption)
 	for _, fn := range fns {
 		fn(opt)
@@ -188,7 +188,7 @@ func Input(label string, fns ...InputOption) string {
 		}
 		return
 	}
-	text, _ := prompt.Input(
+	text, shouldExit = prompt.Input(
 		label+" ",
 		menu,
 		prompt.OptionPrefixTextColor(prompt.Blue),
@@ -205,7 +205,7 @@ func Input(label string, fns ...InputOption) string {
 			cache.AddItem(opt.recentBucket, sug)
 		}
 	}
-	return text
+	return
 }
 
 func PressEnterToContinue() {
